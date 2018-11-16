@@ -8,8 +8,6 @@ queries, databases for time-series, graphs, or geographical data,
 search engines, and many more @TODO. In this section we describe and
 provide motivation for 3DF's data model.
 
-## Design Considerations
-
 We strongly believe that the next generation of query processors must
 take into account the needs of the emerging data-science community, as
 those will make up most of our users in the future. Motivating this
@@ -49,9 +47,14 @@ represent such data much more efficiently and materialize only
 neccessary attributes, but incur frequent multi-way joins across
 relations of potentially highly varying selectivities.
 
-## The 3DF Data Model
-
-@TODO
+Motivated by these considerations and with further inspiration from
+the LogicBlox and Datomic systems[0, 1], we model all data in sixth
+normal form, meaning that every attribute is represented as a separate
+relation. This comes with a number of trade-offs, whose detailed
+investigation is not the focus of this work. In addition to the
+treatment in Aref et al.[0], we find that this model is well suited to
+dealing with many heterogeneous sources and maps naturally to Datalog
+expressions.
 
 ## One Size Fits All?
 
@@ -61,7 +64,11 @@ at least an order of magnitude in efficiency gains. Below that, the
 cost of developing, maintaining, and integrating a specialized system
 dominates. We suspect that this threshold is even higher for many
 industrial users with no in-house competence in designing
-data-processing systems. 
+data-processing systems.
+
+A similar approach has been taken by the Datomic database[1] and the
+EVE project[2]. We witnessed the former's outsized, positive impact on
+developer productivity and system evolvability first-hand.
 
 We therefore think it worthwile to investigate whether novel
 approaches allows us to make general-purpose query engines that can
@@ -70,4 +77,5 @@ offer competitive performance across a wider class of use cases.
 ## Sources
 
 [0] [Aref et al., Design and Implementation of the LogicBlox System](../sources/logicblox.pdf)
-[1] [Datomic](https://www.datomic.com/)
+[1] [Datomic](www.datomic.com)
+[2] [EVE](incidentalcomplexity.com)
