@@ -85,9 +85,21 @@ interested in minimizing the number of worst-case plans chosen. Such
 plans not only affect individual query performance, but negatively
 impact all users of the system.
 
-Neither the execution model of differential dataflows, nor the highly
-dynamic environments 3DF is designed for bear much resemblance to
-assumptions made 40 years ago.
+At a first glance, translating the System R approach to 3DF seems
+straightforward. Materialized sub-computations (*arrangements*)
+provide access-paths to tuples, for which a reasonable cost model
+could be established.
+
+The novel execution model of differential dataflows and the highly
+dynamic environments 3DF is designed for do not bear much resemblance
+to the operational realities 40 years ago. Traditional planners are
+not built with incremental, streaming evaluation in mind.
+
+In a streaming context, a query, once registered, will continue taking
+up memory for all of its materialized arrangements and CPU time for
+all of its dataflow elements. This implies that we will eventually
+have to share arrangements and dataflow elements between users to
+achieve the desired scale.
 
 ## Sources
 
