@@ -44,9 +44,51 @@ graph.
 
 ## Remedy
 
+Luckily, generic rules rarely used in isolation, i.e. without any more
+specific constraints applied (in the same sense that a function is
+rarely evaluated for all possible parameters, but rather for a much
+smaller set of specific ones).
 
+As to the example of `:person/knows`, an application might at any
+given point be interested only in whether a few *specific* persons
+know of each other, or in exploring a limited number of hops in the
+social network of a person. Therefore a first remedy might be to hold
+back on synthesizing a rule until a client has expressed an active
+interest in it.
+
+Assume the definition of the `knows` rule is available on the server,
+once a client has registered it, but the corresponding dataflow isn't
+created until another client arrives with the following query:
+
+``` clojure
+;; Is there a pair of users named Alice and Bob, 
+;; which know of each other?
+
+[:find ?x ?y
+ :where
+ [?x :person/firstname "Alice"]
+ [?y :person/firstname "Bob"]
+ (knows ?x ?y)]
+```
+
+Now the resulting computation is much less problematic, because we
+need only explore the transitive closure between persons named either
+Alice or Bob. Deferring synthesis of `knows` has saved us a lot of
+trouble in this case.
+
+As will be dicussed below, there is a much deeper trade-off lurking
+beneath this seemingly simple problem of eager vs lazy synthesis of
+queries. For now, we hypothesize that eager materialization is
+problematic in close to all cases, because we lose the ability to even
+reason about what the best evaluation strategy is.
+
+[@TODO first user interested in a query has to wait longer, is that a
+problem?]
 
 ## Big Picture
+
+We've seen how semantically meaningful rules are often terribly
+underconstrained.
 
 The problem of eager materialization, explored in this scenario, hints
 at a much more general trade-off: Abstractions such as the `knows`
@@ -65,10 +107,3 @@ downstream computations are shut down.
 
 We will explore this trade-off in much greater detail in the following
 scenarios.
-
-For now, we observe that eager materialization is problematic in any
-case, because we lose the ability to even reason about what the best
-evaluation strategy is.
-
-[@TODO first user interested in a query has to wait longer, is that a
-problem?]
