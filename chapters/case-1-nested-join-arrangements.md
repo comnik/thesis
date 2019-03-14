@@ -1,4 +1,4 @@
-# Case 1: Redundant Arrangements
+# Case 1: Redundant Join State
 
 ## Problem
 
