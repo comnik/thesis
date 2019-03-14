@@ -103,8 +103,10 @@ joins within, and instead bound it in the number and size of
 attributes maintained.
 
 There is a trade-off of course, as transforming plans into delta
-queries leads to a quadratic increase in the number of dataflow
-elements.
+queries leads to an increase in the number of dataflow elements. We
+will see in our discussion of worst-case optimal streaming joins, that
+this increase can even be quadratic in the number of relations
+involved in the join.
 
 Within any given delta flow, an attribute may only appear at a
 position where either of its sides is already bound by the tuples
