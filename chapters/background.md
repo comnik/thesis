@@ -62,7 +62,20 @@ feed off of them.
 
 ## 3DF
 
-3DF (short for *Declarative Differential Dataflow*).
+With a robust implementation of differential dataflow available it
+becomes feasible to re-think the boundaries between the domain of
+analytical databases and that of near real-time stream processors.
+
+3DF[4] (short for *Declarative Differential Dataflow*) is an
+attribute-oriented data model and accompanying query engine built on
+top of Differential Dataflow. Workers within a 3DF cluster will extend
+Timely workers with an event-driven server loop that accepts commands
+from external clients. In particular, clients can send query plans
+that are then synthesized into differential dataflows at runtime.
+
+We will work within the existing 3DF codebase throughout this
+thesis. Thus, the next chapter is dedicated to describe the design and
+implementation of 3DF at the outset of this work.
 
 ## Sources
 
@@ -70,3 +83,4 @@ feed off of them.
 [1] [Murray et al., Naiad: A Timely Dataflow System](../sources/naiad.pdf)
 [2] [Differential Dataflow](https://github.com/TimelyDataflow/differential-dataflow)
 [3] [McSherry et al., Differential dataflow](../sources/differentialdataflow.pdf)
+[4] [Declarative Dataflow](https://github.com/comnik/declarative-dataflow)
