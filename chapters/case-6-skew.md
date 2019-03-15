@@ -30,4 +30,10 @@ certain it will see all inputs for a key `k` on a specific worker, if
 it has seen any input for `k` on that worker. Otherwise we might miss
 results.
 
+## Examples
 
+@TODO MatchAV, MatchEA, Filter vs Lookup vs Join
+
+@TODO control collection
+
+@TODO reverse index on categorical feature
