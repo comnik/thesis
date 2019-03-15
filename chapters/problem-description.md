@@ -1,4 +1,4 @@
-# Problem Description
+# Problem Description And Scope
 
 We are tackling the problem of multi-query optimization, which is
 distinct from single-query optimization inasmuch as we do not concern
