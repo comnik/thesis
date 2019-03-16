@@ -14,6 +14,5 @@
 6.6. [Skew](case-skew.md)
 7. [Changes to 3DF](implementation.md)
 
-Implementation
 Conclusion
 Bibliography

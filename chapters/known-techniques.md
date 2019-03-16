@@ -1,5 +1,9 @@
 # Known Techniques
 
+## Rule Engines
+
+@TODO
+
 ## Traditional Query Optimization
 
 Selinger et al.[0] give the canonical query planner, split into three
