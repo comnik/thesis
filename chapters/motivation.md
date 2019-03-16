@@ -1,4 +1,4 @@
-# Motivation
+# Introduction and Motivation
 
 As more and more industries adopt data-driven decision-making and
 companies are increasingly looking to provide digital services, the

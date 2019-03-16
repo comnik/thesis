@@ -1,4 +1,4 @@
-# @TODO
+# Known Techniques
 
 ## Traditional Query Optimization
 

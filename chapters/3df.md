@@ -100,7 +100,14 @@ treatment in Aref et al.[0], we find that this model is well suited to
 dealing with many heterogeneous sources and maps naturally to Datalog
 expressions.
 
-## One Size Fits All?
+### Implementation
+
+Although conceptually we are modelling a single space of facts as it
+evolves through logical time, we keep track of individual attributes
+in their own Differential collections. Attribute collections hold `(e,
+v)` pairs.
+
+### One Size Fits All?
 
 We share the view of Aref et al.[0] towards specialized
 databases. Their use is warranted in scenarios where they can provide
@@ -117,6 +124,10 @@ developer productivity and system evolvability first-hand.
 We therefore think it worthwile to investigate whether novel
 approaches allows us to make general-purpose query engines that can
 offer competitive performance across a wider class of use cases.
+
+## Query Language
+
+@TODO
 
 ## Sources
 
