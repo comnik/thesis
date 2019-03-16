@@ -12,6 +12,7 @@
 6.4. [Redundant Dataflows](case-redundant-dataflows.md)
 6.5. [Dataflow Size](case-dataflow-size.md)
 6.6. [Skew](case-skew.md)
+7. [Changes to 3DF](implementation.md)
 
 Implementation
 Conclusion
