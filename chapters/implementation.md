@@ -100,3 +100,61 @@ that haven't been shut down.
 
 ## Bindings
 
+Over the course of this work it became evident that a few extensions
+to the query plan representation would be necessary to (a) better
+utilize the new primitive offered by worst-case optimal, n-way join
+processing and (b) canonicalize plan representation in order to expose
+more opportunities for sharing dataflows between multiple clients.
+
+### Mapping Clauses To Worst-Case Optimal Primitives
+
+From the discussion in Veldhuizen[0] we learn that the Leapfrog
+Triejoin worst-case optimal join algorithm can be utilized to
+implement many common features of relational query engines:
+conjunctions (joins), disjunctions (unions), negations (antijoins),
+and filtering by various predicates. This is achieved by additional
+implementations of the core trie iterator interface. Similar
+extensions exist within the worst-case optimal dataflow-join framework
+due to Ammar et al.[1], which we have integrated into 3DF as part of
+this work.
+
+[@TODO Recall] that any participant in a worst-case optimal dataflow
+join must implement the `PrefixExtender` trait described in
+[[@TODO]].
+
+For the purposes of the query language, we will refer to such
+implementations as *bindings*, for their property of binding possible
+values to variables. We've provided `PrefixExtender` implementations
+for attribute bindings, constants, binary predicates, and negation.
+
+Some bindings, such as for predicates and negation, are exclusively
+constraining (shrinking the space of possible values for a given
+variable), others, such as attributes and constants, can also provide
+values.
+
+Converting between the existing clause language described in [[@TODO]]
+and this new language of bindings is straightforward. The basic data
+pattern `[?e :a ?v]` is expressed as `MatchA(?e, :a, ?v)` and as
+`attribute(?e, :a, ?v)` respectively. `MatchEA` and `MatchAV` can be
+broken down into a `attribute(?e, :a, ?v)` combined with a
+`constant(?e, x)` or `constant(?v, x)` respectively.
+
+The existing two-way join operator `Join(left, right)` is resolved as
+the union of resolving both child plans into their bindings.
+
+@TODO antijoin
+
+`Filter` plan stages map directly onto the corresponding
+`binary_predicate` binding.
+
+Projections, aggregations, disjunctions, and functional transforms
+remain unchanged.
+
+### Exposing Opportunities For Shared Dataflows
+
+
+
+## Source
+
+[0] [Veldhuizen, Leapfrog Triejoin: A Simple, Worst-Case Optimal Join Algorithm](../sources/leapfrog-triejoin.pdf)
+[1] [Ammar, McSherry et al., Distributed Evaluation of Subgraph Queries Using Worst-case Optimal Low-Memory Dataflows](../sources/wco-differential.pdf)
