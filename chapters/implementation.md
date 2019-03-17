@@ -6,7 +6,42 @@
 
 ## Lazy Synthesis
 
-@TODO
+In the [[Eager Synthesis]] scenario we have seen that demand-driven
+synthesis of query plans is a pre-requisite to needlessly
+materializing rules, which materialize large numbers of tuples, but
+would never even be used without other constraints of higher
+selectivity.
+
+As explained in [[Background/3DF]], 3DF used to synthesize all rules
+eagerly. Over the course of this work, we extended 3DF workers with a
+rule store. Upon receiving a `Register` command, workers now merely
+store the provided plan (assuming it doesn't clash with a known rule
+of the same name). Synthesis of a rule `q` will only happen, once the
+first `Interest` command for `q` is received.
+
+A few more changes were required. In particular, a mechanism to gather
+query dependencies had to be added. Queries can depend on attributes
+and on other rules (that were registered in advance). This captured by
+a simple struct:
+
+``` clojure
+/// Description of everything a plan needs prior to synthesis.
+pub struct Dependencies {
+    /// NameExpr's used by this plan.
+    pub names: HashSet<String>,
+    /// Attributes queries in Match* expressions.
+    pub attributes: HashSet<Aid>,
+}
+```
+
+Like all other aspects of synthesis, `Dependency` structs are
+collected recursively starting at the leafs of the query plan (data
+patterns such as `MatchA` and references via `NameExpr`). The
+resulting set of rules requiring synthesis is brought into a canonical
+order, to ensure that the same exact dataflow graph is created on all
+workers.
+
+@TODO Talk about deciding between depending on NameExpr by name or resolving into dependencies?
 
 ## Logging and Instrumentation
 
@@ -62,3 +97,6 @@ that haven't been shut down.
  [?x :differential.event/size ?size]
  (not [?x :timely.event.operates/shutdown? true])]
 ```
+
+## Bindings
+
