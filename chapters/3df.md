@@ -30,7 +30,8 @@ enum Value {
 ```
 
 We use 64bit unsigned integers to identify entities and string names
-to identify attributes. While the exact choice of types doesn't
+starting with a colon to identify attributes (e.g. `:person/name`,
+`:comment/parent-post`). While the exact choice of types doesn't
 matter, it is this unification which frees us from having to compile
 dataflows individually.
 
@@ -128,6 +129,26 @@ offer competitive performance across a wider class of use cases.
 ## Query Language
 
 @TODO
+
+## Input Sources
+
+An important effect of attribute-oriented modeling is the ability to
+source attributes from different external systems, even though they
+might belong together from a domain modeling perspective.
+
+3DF allows for generalized source operators, which feed one or more
+attribute indices. Source operators connect to external systems or
+read from the filesystem and break external data models down into
+their individual attributes. They are also responsible for entity id
+and timestamp assignment.
+
+Decisions made by sources can have a significant impact on overall
+system performance. Sources may stall the entire system by failing to
+downgrade their capabilities, cause uneven load patterns by issuing
+too small or too large batches, or overload the progress tracking
+subsystem by assigning unnecessarily many distinct timestamps. While
+highly relevant, these considerations are beyond the core focus of
+this work.
 
 ## Sources
 
