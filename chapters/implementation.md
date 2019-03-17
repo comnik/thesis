@@ -104,9 +104,8 @@ Over the course of this work it became evident that a few extensions
 to the query plan representation would be necessary to (a) better
 utilize the new primitive offered by worst-case optimal, n-way join
 processing and (b) canonicalize plan representation in order to expose
-more opportunities for sharing dataflows between multiple clients.
-
-### Mapping Clauses To Worst-Case Optimal Primitives
+more opportunities for sharing dataflows between multiple clients, as
+described in [[@TODO]].
 
 From the discussion in Veldhuizen[0] we learn that the Leapfrog
 Triejoin worst-case optimal join algorithm can be utilized to
@@ -150,9 +149,37 @@ the union of resolving both child plans into their bindings.
 Projections, aggregations, disjunctions, and functional transforms
 remain unchanged.
 
-### Exposing Opportunities For Shared Dataflows
+Splitting off constant bindings, transforms, aggregations, and
+projections from the heavy-lifting required to resolve conjunctions
+has the added benefit of exposing additional opportunities for sharing
+dataflows between clients. Consider the following two queries.
 
+``` clojure
+[:find ?person
+ :where
+ (rule ?person)
+ [?person :person/name "Alice"]]
+ 
+[:find ?person
+ :where
+ (rule ?person)
+ [?person :person/name "Bob"]]
+```
 
+We've described the various trade-offs to factor-in when considering
+to share the evaluation of `rule` between the two clients in chapter
+[[@TODO]]. Here we merely want to call attention to the resulting
+representation in the language of bindings.
+
+``` rust
+[into_bindings("rule"),
+ attribute(?person, :person/name, ?name)
+ constant(?name, "Alice")]
+ 
+[into_bindings("rule"),
+ attribute(?person, :person/name, ?name)
+ constant(?name, "Bob")] 
+```
 
 ## Source
 
