@@ -18,6 +18,14 @@ modern column-stores:
 Differential collections already employ a kind of run length encoding
 scheme, by virtue of their multi-set semantics.
 
+## Late Materialization
+
+@TODO
+Another technique from the world of column-stores. It seems like a
+generalization of predicate-pushdown. E.g. for certain simple
+aggregates it should be possible to push-down the aggregation and do
+it directly on a (potentially compressed) single column.
+
 ## Interning
 
 @TODO

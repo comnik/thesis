@@ -37,3 +37,5 @@ results.
 @TODO control collection
 
 @TODO reverse index on categorical feature
+
+@TODO general trade-off with arrangements

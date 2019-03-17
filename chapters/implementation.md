@@ -64,6 +64,7 @@ order, to ensure that the same exact dataflow graph is created on all
 workers.
 
 @TODO Talk about deciding between depending on NameExpr by name or resolving into dependencies?
+@TODO Talk about resulting unification of NameExpr and RuleExpr
 
 ## Logging and Instrumentation
 
