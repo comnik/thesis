@@ -2,7 +2,29 @@
 
 ## Indexing
 
-@TODO
+In order to make use of the worst-case optimal dataflow-join framework
+described in [[@TODO]] we could no longer maintain attributes as just
+an arranged collection of `(e, v)` pairs. The implementation of the
+`PrefixExtender` trait for attributes requires two additional traces,
+one to keep track of the number of extensions the attribute would
+propose for a given prefix and a trace indexed in a way suitable to
+efficiently validate proposals made by other extenders.
+
+Additionally, attributes might be placed at a stage in the delta query
+pipeline, at which prefixes already bind the value symbol. In that
+case, reversed versions of all three of the above arrangements must be
+at hand.
+
+We therefore introduced a `CollectionIndex` structure which holds all
+three arrangements for a given direction and a given attribute. 3DF
+workers maintain separate mappings from attribute names to their
+forward and reverse collection indices. This simplifies the types and
+ownership involved.
+
+Although not client-configurable at the time of this writing, it makes
+sense to skip the reverse indices for certain attributes. An example
+would be one-way mappings used for string interning, or unary
+attributes indicating categorical features.
 
 ## Lazy Synthesis
 
