@@ -204,7 +204,133 @@ representation in the language of bindings.
  constant(?name, "Bob")] 
 ```
 
+### A Worst-Case Optimal N-Way Join Operator
+
+In order to be able to express the worst-case optimal join strategy
+explored throughout this work, a new query plan stage and
+corresponding operator implementation had to be added. We've based the
+present implementation off of [2] and [3]. The resulting operator is
+called *Hector* and will be referred to as such throughout this
+chapter.
+
+[[@TODO GenericJoin lineage]]
+
+At a high-level, the Hector operator provides the following
+capability: Given a set of bindings (as described in [[Bindings]]) and
+a set of target variables, find all possible variable assignments that
+satisfy all bindings. The following Hector plan stage would therefore
+be sufficient to express a simple triangle query:
+
+``` clojure
+{Hector
+ {variables: [?a, ?b, ?c],
+  bindings:  [attribute(?a, :edge, ?b),
+              attribute(?b, :edge, ?c),
+              attribute(?a, :edge, ?c),]}}
+```
+
+If no bindings are passed, Hector will throw an error. If a single
+binding is passed (which must be an `attribute` binding, as no other
+binding can provide tuples), Hector will merely perform a projection
+onto the target variables.
+
+[[@TODO n=2 case]]
+
+For the general-arity case, Hector employs the delta-query technique
+explained in [[@TODO]]. This means that a separate dataflow will be
+constructed for each tuple-providing binding that may experience
+change. Only `attribute` bindings can provide tuples in our current
+implementation. By default, all attributes are assumed to experience
+change. Continuing with our example, Hector would therefore create
+three dataflows. For each of them, we will refer to the generating
+binding as the *source binding* and to the corresponding dataflow as
+the *delta pipeline*.
+
+``` clojure
+(1) d_edge(a, b) -> edge(b, c) -> edge(a, c)
+(2) d_edge(b, c) -> edge(a, b) -> edge(a, c)
+(3) d_edge(a, c) -> edge(a, b) -> edge(b, c)
+```
+
+All delta pipelines are executed concurrently at the dataflow
+level. This can lead to inconsistencies as we might derive the same
+output change on multiple pipelines, when sources change
+concurrently. Assume for example we have a graph containing the
+triangle `[100 200 300]`, formed by the edges `(100 200)`, `(200
+300)`, and `(100 300)`. A single change `((100 200) -1)` to the
+`:edge` attribute will cause all three pipelines to derive the same
+retraction `([100 200 300] -1)`.
+
+To prevent this, we must impose a logical order on the computation. In
+particular, we must ensure that the retraction of [[@TODO]]
+
+Delta pipelines are therefore created within a new, nested scope
+carrying the `AltNeu` timestamp type. Upon use, attributes such as
+`:edge` are imported and wrapped with the corresponding `AltNeu`
+timestamp. We cache imported arrangements by attribute name, to
+prevent redundant imports.
+
+Recall that a worst-case optimal join picks an appropriate variable
+order (more on this crucial step later), along which a collection of
+prefixes (initially containing only the empty prefix) is extended to
+bind more and more symbols. While conceptually this is correct, it
+does not translate directly into the dataflow setting. Dataflows must
+always start with some source of input. In our case, the finest
+grained source of input available are tuple-providing bindings,
+i.e. the `attribute` binding — which already binds two symbols!
+
+In order to consider changes to each individual variable separately,
+we could break attributes further down into unified input collections
+for each of their constituent variables. But this would have to be
+done in a separate dataflow for each combination of bindings. Instead,
+we would like to start with attribute inputs, and thus with prefixes
+of length two.
+
+In order to get away with this we must make sure to handle conflicts
+on the variables of each source binding. Consider a Hector plan stage
+involving (possibly amongst others) both an `attribute(?user,
+:user/name, ?name)` and a `constant(?name, "Alice")` binding. When
+creating the delta pipeline starting from the `:user/name` attribute,
+we would never give the constant binding a chance to narrow down the
+collection of all usernames to just those equal to "Alice".
+
+It is straightforward to detect such conflicts for a given source
+binding, as we can look for any of the remaining bindings for which
+all of their variables are already bound by the prefix. In our
+example, the constant binding binds only `?name`, which is already
+bound by the prefix `[?user ?name]`.
+
+The same can happen for attribute bindings. Consider `attribute(?a,
+:edge, ?b)` and `attribute(?b, :edge, ?a)`, bindings which express a
+symmetry constraint between two nodes in a directed graph. Sourcing
+the first attribute would lead to `[?a ?b]` prefixes, and vice
+versa. In both cases, the other binding would never get a chance to
+participate in prefix extension.
+
+In our current implementation, Hector detects all conflicts, but only
+handles those with constant bindings. This is done by filtering the
+source binding accordingly. [[@TODO c.f. section on filter vs join for
+filtering]].
+
+For the following we will again assume that a suitable variable order
+is at hand. We look at the variable order, and the variables bound by
+the current prefix and determine from that the next variable `x`, to
+which prefixes should be extended. Ignoring the source binding, we
+then filter all other bindings down to only those that bind ("talk
+about") `x`. Here we also skip bindings that are not *ready* to
+participate in prefix extension to `x`. We will describe this notion
+in greater detail when discussing the problem of finding suitable
+variable orderings. For now, we provide some intuition with the
+following example:
+
+``` clojure
+
+```
+
+
 ## Source
 
 [0] [Veldhuizen, Leapfrog Triejoin: A Simple, Worst-Case Optimal Join Algorithm](../sources/leapfrog-triejoin.pdf)
 [1] [Ammar, McSherry et al., Distributed Evaluation of Subgraph Queries Using Worst-case Optimal Low-Memory Dataflows](../sources/wco-differential.pdf)
+[2] https://github.com/TimelyDataflow/differential-dataflow/tree/master/dogsdogsdogs
+[3] https://github.com/frankmcsherry/dataflow-join
