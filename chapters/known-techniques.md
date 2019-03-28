@@ -130,7 +130,9 @@ able to detect them and adapt on the fly.
 
 Avnur and Hellerstein [[@TODO]] introduced a new query processing
 architecture, called *eddies*, which continuously reorders operators
-as it runs.
+as it runs. In a dataflow settings, this is best imagined as an
+additional dataflow operator routing input tuples between a set of
+candidate operators.
 
 Such an architecture has additional benefits for long-running queries,
 as we might not want to spend a lot of time on fine-grained planning
@@ -139,6 +141,44 @@ as we gather more statistics about runtime behaviour.
 
 ## Stream Optimization
 
+Hirzel et al. [[@TODO]] helpfully provide a catalog of the most common
+optimizations in stream processing, of which we will highlight a few.
+
+**Operator Reordering** is a much simpler version of the ideas
+discussed in the previous chapters. The basic idea is to move more
+selective operators upstream, in order to minimize the number of
+tuples propagated downstream.
+
+**Redundancy Elimination** attempts to remove redundant operators,
+e.g. by moving equivalent operators on two branches of a dataflow into
+their shared trunk.
+
+**State Sharing** avoids unnecessary copies of data, by allowing
+operators to access a shared piece of state (e.g. an index).
+
+**Batching** exploits the fact that many operators can amortize
+processing across many inputs.
+
+An interesting trade-off between pushing selective operators upstream
+and redundancy elimination arises in the multi-tenant setting, as the
+more selective operators tend to differ between computations. Pushing
+these operators upstream might thus severely reduce the re-usability
+of a dataflow trunk, while significantly reducing the number of tuples
+flowing downstream. 
+
+Hirzel et al. again cite more sophisticated techniques to share
+dataflow elements in a multi-tenant setting. We will come back to
+these in chapter [[@TODO]].
+
+A similar trade-off arises between separation of operators into
+smaller computational steps in order to exploit pipeline parallelism,
+and merging of operators into larger units, in order to minimize
+communication and scheduling overheads. For example, multiple
+transform or filter stages can be merged into a single one, by
+composing their transformation functions / predicates, and vice versa.
+
+Differential's arrangements provide a general purpose way to share
+compacted and sorted batches of tuples between operators.
 
 ## Conclusions
 
