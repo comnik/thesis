@@ -2,9 +2,25 @@
 
 ## Rule Engines
 
-@TODO
+Rule-based systems allow for the expression of business rules, often
+in a high-level language. Registered rules will then be continuously
+evaluated against an input stream of business events. 
+
+It quickly becomes infeasible to re-evaluate all rules on every
+input. Specialized algorithms are employed to efficiently determine
+the subset of rules that might possibly be affected by a new
+input. Those rules are then re-evaluated. The RETE algorithm due to
+Forgy[[@TODO]] is the archetypical pattern-matching algorithm powering
+rule engines. PHREAK [[@TODO source]] is a collection-oriented
+alternative to the tuple-by-tuple RETE.
 
 ## Traditional Query Optimization
+
+The field of query optimization is vast. For the purposes of this work
+we will be focusing mostly on relational query planning. Query
+planning is the task of, given a tree structure of relational
+operators, determining the most efficient order in which to execute
+these operators without affecting the result set.
 
 Selinger et al.[0] give the canonical query planner, split into three
 components: cardinality estimation, plan space enumeration, and a cost
@@ -13,13 +29,38 @@ established the practicality of declarative query languages and — to
 this day — serves as the reference architecture for many modern
 databases in productive use.
 
-@TODO describe SystemR planner
+Selinger et al. introduce the concept of an *access path*. Access
+paths represent the different ways of accessing the tuples in a
+relation. The simplest access path is a full scan of the relation, but
+various indices might be available as well.
+
+For queries that don't involve joins the System R planner employs a
+cost model incorporating statistics gathered on the expected
+selectivity of each access path available to service each of the
+requested selection predicates. Additionally, the planner will check
+whether the desired output ordering matches the order provided by any
+suitable access path.
+
+The complete cost model is somewhat more complex, because it allows
+for a weighting between I/O and CPU cost and must deal with the fact
+that memory segments will contain tuples from different
+relations. Therefore the cost of scanning through a seemingly small
+relation might be much higher in reality. Given this cost model, the
+planner can pick the cheapest access path to service the query.
+
+Of course, the more interesting case is that involving multiple
+relations, which must be joined together. Given the cost model for
+queries on individual relations, the planner now has to enumerate join
+order permutations, compute overall cost, and pick the cheapest
+overall plan. Simple heuristics are used to reduce the number of
+permutations under consideration.
 
 Many variants and improvements on this architecture have been proposed
 over the years, most notably so in a long line of research by Graefe
-et al.[1,2].
-
-@TODO summary Volcano vs. SystemR
+et al.[1,2]. These architectures vary in their plan enumeration
+strategies (bottom-up vs top-down) and improve the extensibility of
+the planning architecture. The basic approach of heuristics-based cost
+estimation combined with plan enumeration stays the same.
 
 It is well established[3,4], that cardinality estimation is both the
 most important part of traditional query optimization, as well as the
@@ -76,28 +117,39 @@ part of its value from the ability to provide a unified query
 interface over heterogenous data sources. Inputs often come from files
 or arrive over the network from external systems.
 
-## Methods For Gathering Metrics On Relations
+## Stream Optimization
 
-@TODO
 
-## Suitability to 3DF
+
+## Conclusions
 
 We reiterate our desire for a practical system serving diverse data
 needs in real-world organizations. Consequently, we care less about
 picking optimal queries for every individual query and are more
-interested in minimizing the number of worst-case plans chosen. Such
+interested in minimizing the number of disastrous plans chosen. Such
 plans not only affect individual query performance, but negatively
 impact all users of the system.
 
 At a first glance, translating the System R approach to 3DF seems
 straightforward. Materialized sub-computations (*arrangements*)
-provide access-paths to tuples, for which a reasonable cost model
-could be established.
+provide additional access-paths to tuples, for which a reasonable cost
+model could be established. 
+
+Arguably, the suitability of Differential to on-line analytical
+computations would ease some of the challenges of maintaining
+up-to-date metrics on relations, without incurring a significant
+oeprational overhead. Yet, we do not see a promising avenue to tackle
+the fundamental fragility of cardinality estimation on complex queries
+invoving many joins using these heuristics-based techniques.
+
+Even worse, subgraph queries will often not have [[@TODO]]
 
 The novel execution model of differential dataflows and the highly
 dynamic environments 3DF is designed for do not bear much resemblance
 to the operational realities 40 years ago. Traditional planners are
 not built with incremental, streaming evaluation in mind.
+
+[[@TODO show how the planner assumptions aren't valid anymore]]
 
 In a streaming context, a query, once registered, will continue taking
 up memory for all of its materialized arrangements and CPU time for
