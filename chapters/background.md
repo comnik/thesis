@@ -72,6 +72,8 @@ a collection. The resulting indexed state can be shared between
 operators and allows for the dynamic creation of dataflows that can
 feed off of them.
 
+Differential collections implement multi-set semantics.
+
 ## 3DF
 
 With a robust implementation of differential dataflow available it

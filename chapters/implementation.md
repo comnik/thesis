@@ -320,11 +320,11 @@ then filter all other bindings down to only those that bind ("talk
 about") `x`. Here we also skip bindings that are not *ready* to
 participate in prefix extension to `x`. We will describe this notion
 in greater detail when discussing the problem of finding suitable
-variable orderings. For now, we provide some intuition with the
-following example:
+variable orderings. For now, we will try to provide some intuition.
+
+[[@TODO Example]]
 
 ``` clojure
-
 ```
 
 

@@ -126,9 +126,62 @@ We therefore think it worthwile to investigate whether novel
 approaches allows us to make general-purpose query engines that can
 offer competitive performance across a wider class of use cases.
 
-## Query Language
+## Query Plan Language
 
-@TODO
+3DF itself does not enforce a specific query language, but is intended
+to support relational query languages in general. We designed 3DF
+specifically with the needs of a reactive Datalog engine in
+mind. Datalog supports recursive rules and is thus well suited to
+expressing subpattern queries on graphs, large n-way joins, and many
+other common, relational computations in a concise way. The base
+language can be easily extended into various directions (e.g. temporal
+patterns, or probabilistic queries). Languages such as SQL and its
+various dialects (as used in modern data-processing systems) use the
+same primitives.
+
+Any relational language relies on a small set of computational
+primitives: selections, joins, projections, and set union. As
+mentioned above, Datalog draws its expressive power from recursive
+rules, which can be supported via iteration to fixed point. On top of
+those primitives, we want to support stratified logical negation
+("negation as set difference").
+
+Differential comes with a built-in two-way `join` operator. Selections
+correspond to Differential's `filter` operator. Set union is expressed
+as `concat`. Projections are implemented as a `map` extracting the
+requested offsets from a stream of tuples. Set difference is
+implemented via the `antijoin` operator.
+
+Timely and Differential support local iteration to fixed-point,
+meaning parts of the dataflow graph can be iterated independently from
+one another, and from the overall computation itself. Complex
+iteration patterns, such as mutual recursion, can be expressed by
+means of Differential's `Variable` abstraction. Variables represent
+collections that are not completely defined yet.
+
+While relational languages usually provide set semantics, we will be
+reflecting the multi-set semantics implemented by Differential
+collections. Wherever necessary, the `distinct` operator can be used
+to enforce set semantics on a collection.
+
+Within 3DF query plans are represented as trees of operator
+descriptions (*plan stages*). In addition to plan stages for the
+operators described above, we provide stages for various aggregations
+on tuples, as well as data transforms and basic arithmetic via
+built-in functions.
+
+The leaf nodes of a query plan are made up out of *data patterns*,
+which encode the supported access paths for facts:
+
+- *MatchA := [?e a ?v]* reads an entire attribute collection `a`.
+- *MatchEA := [e a ?v]* reads all values associated with entity `e`
+  for attribute `a`.
+- *MatchAV := [?e a v]* reads all entity ids which have the value `v`
+  associated with them for attribute `a`.
+  
+We do not support variables in attribute position. Neither do we
+support a pattern for checking the existence of an individual fact
+(e.g. `MatchFact := [e a v]`).
 
 ## Input Sources
 
