@@ -117,8 +117,27 @@ part of its value from the ability to provide a unified query
 interface over heterogenous data sources. Inputs often come from files
 or arrive over the network from external systems.
 
-## Stream Optimization
+## Adaptive Query Processing
 
+We have seen in the previous chapter, that all traditional approaches
+to cardinality estimation (and thus to join ordering and query
+planning at large) are susceptible to exponentially compounding
+estimation errors due to the use of heuristics.
+
+A more recent field of research explored the idea, that if disastrous
+plans would have to be expected from time to time, systems might be
+able to detect them and adapt on the fly.
+
+Avnur and Hellerstein [[@TODO]] introduced a new query processing
+architecture, called *eddies*, which continuously reorders operators
+as it runs.
+
+Such an architecture has additional benefits for long-running queries,
+as we might not want to spend a lot of time on fine-grained planning
+at registration time, but rather amortize the planning cost and adapt
+as we gather more statistics about runtime behaviour.
+
+## Stream Optimization
 
 
 ## Conclusions
