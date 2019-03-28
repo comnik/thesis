@@ -1,8 +1,22 @@
 # Background
 
-## Dataflow Programming
+## Dataflow
 
-@TODO
+*Dataflow*, as commonly used, refers to two different but related
+concepts, both of which are relevant to this work.
+
+On the one hand, *Dataflow* is an architectural paradigm in which the
+execution of a computation is coordinated entirely via the
+availability of data. This is in opposition to the von Neumann
+architecture, which uses control structures (sequential statements,
+branching via conditionals, loops) to coordinate the execution. Today,
+we often describe systems that follow this idea as *reactive*.
+
+On the other hand, *Dataflow programming* refers to a programming
+paradigm, in which the structure of a computation is expressed as a
+directed graph. From this graph we can infer data dependencies. This
+is a common approach to implementing dataflow coordination as
+described above.
 
 ## Timely Dataflow
 
@@ -30,8 +44,6 @@ imposing a partial ordering on them. The ordering controls visibility
 (and thus detaches physical availability of a datum from logical
 visibility) and allows the system to infer for which logical times it
 might still receive more data.
-
-@TODO
 
 ## Differential Dataflow
 
