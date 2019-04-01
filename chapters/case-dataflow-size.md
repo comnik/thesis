@@ -23,10 +23,14 @@ involved in a join.
 
 ## Remedy
 
-In a multi-user environment, a natural approach for reducing the
-overall number of dataflow elements is sharing dataflows between
-clients. We've explored this approach in chapter [@TODO]. Here we want
-to focus instead on ways to increase the opportunities for sharing
-dataflows, by moving multi-tenancy into the data plane.
+@TODO
+If we want to re-use delta query pipelines we might have to generalize
+~AltNeu~ to be an integer, specifying the position in the
+chain. Otherwise the likelihood of compatible re-use across pipelines
+is negligible.
 
 @TODO iterated hector
+There is a remaining redundancy in Hector, in that whenever multiple
+Attribute bindings refer to the same attribute, we would be
+constructing more than one delta pipeline. In a way, a single change
+to the supporting attribute leads to multiple changes in the bindings.

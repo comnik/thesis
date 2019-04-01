@@ -22,8 +22,12 @@ Consider again a scenario of many analysts concurrently interacting
 with the same data streams. Many of them will be interested in a
 common subset of data, e.g. users that are currently active in Europe,
 but will impose some additional constraints depending on their
-respective tasks at hand. A more concrete example might be the comment
-stream from previous chapters:
+respective tasks at hand.
+
+[[@TODO example: shared access policy?]]
+
+A more concrete example might be the comment stream from previous
+chapters:
 
 ``` clojure
 [(comment ?comment ?place ?person ?ip ?content ...)
@@ -62,6 +66,10 @@ redundant work and incur significant overheads, essentially
 derivingq `n` copies of the `comment` relation. Dataflow elements
 are not free either, and will incur scheduling and other bookkeeping
 overheads.
+
+Computing multiple redundant instance of a plan where worst-case
+optimal execution improves the asymptotic complexity can still be
+significantly cheaper.
 
 ### Shared Trunk
 
@@ -193,10 +201,44 @@ relational model implemented by 3DF and Differential Dataflow. The
 question of whether the two approaches can be combined in a sensible
 way is left for future inquiry.
 
+## Identifying Opportunities For Sharing
+
+Finding common sub-structures across query plans that would be
+suitable for either of the approaches outlined above is in general a
+very computationally intensive problem. For the purposes of this work
+we will not consider arbitrary re-use across rules, but rather stick
+to the following simplified approach.
+
+3DF already enforces that each registered rule be given a unique
+name. We can further break this down and give unique names to all
+conjunctions, e.g. by creating separate rules for the different
+branches of an `or` clause automatically.
+
+Additionally, we can split off plan stages that do not affect the
+underlying joins, such as `Transform` and `Aggregate`.
+
+[[@TODO]]
+
 ## Remedy
 
 Here we are meeting again a trade-off identified in the very first
 scenario we analysed, [[Case 0]].
+
+## Future Work
+
+We think that expressing multi-tenancy within the data plane is a very
+powerful implementation strategy for dataflow systems. Still we might
+think about different ways to accomplish the same goal. Recall that we
+kept track of what parameters were associated with which client via
+the keys of a parameter relation.
+
+This approach has drawbacks when overlap between parameters from
+different tenants is high.
+
+In such cases we could make use of the fact, that sets of client
+tokens form a commutative monoid under set union. Any such monoid can
+take the place of Differential's multiplicities (and benefit from
+efficient in-place updates).
 
 ## Sources
 

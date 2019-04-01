@@ -327,6 +327,10 @@ variable orderings. For now, we will try to provide some intuition.
 ``` clojure
 ```
 
+### Future Work
+
+Eventually we don't even want to call `count` on bindings that we now
+should only ever constrain. [@TODO]
 
 ## Source
 
