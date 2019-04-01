@@ -16,7 +16,191 @@ concurrently.
 
 ## Example
 
+[@TODO analyst queries]
+
+Consider again a scenario of many analysts concurrently interacting
+with the same data streams. Many of them will be interested in a
+common subset of data, e.g. users that are currently active in Europe,
+but will impose some additional constraints depending on their
+respective tasks at hand. A more concrete example might be the comment
+stream from previous chapters:
+
+``` clojure
+[(comment ?comment ?place ?person ?ip ?content ...)
+ 
+ [?comment :comment/creation-date ?creationDate]
+ [?comment :comment/creator ?person]
+ [?comment :comment/ip ?ip]
+ [?comment :comment/browser ?browser]
+ [?comment :comment/content ?content]
+ [?comment :comment/place ?place]]
+```
+
+We have multiple analysts, each interested only in comments from a
+specific location. For an analyst interested in comments originating
+in Zurich, a query might look like the following:
+
+``` clojure
+[:find ...
+ :where
+ (comment ?comment ?place ...)
+ [?place :place/name "Zurich"]]
+```
+
+Given `n` analysts, we can service their queries in three different
+ways.
+
+### Shared Nothing
+
+We create `n` indepedent dataflows, sharing only the base
+relations. This gives us the greatest freedom to pick the best
+possible plans for each individual analyst, for example making use of
+the worst-case optimal join framework introduced in chapter [[@TODO]].
+
+On the other hand, all of those `n` dataflows will perform a lot of
+redundant work and incur significant overheads, essentially
+derivingq `n` copies of the `comment` relation. Dataflow elements
+are not free either, and will incur scheduling and other bookkeeping
+overheads.
+
+### Shared Trunk
+
+Differential's *arrangements* allow us to re-use materialized
+relations between dataflows. We could therefore create a single
+dataflow deriving the `comment` relation, on top of which `n`
+specialized dataflows will be only be responsible for implementing the
+specific additional joins requested by each analyst. Because
+arrangements materialize tuples into sorted batches, doing so will
+cost extra storage proportional in the size of the `comment` relation
+(on top of the base relations) (c.f. [@TODO chapter on redundant join
+state]).
+
+Sharing a common part of the dataflow (a *shared trunk*) avoids
+redundant derivations of the `comment` relation and significantly
+reduces the total number of dataflow elements created (a super-linear
+reduction in case of delta-queries), at the cost of some extra storage
+— seemingly a fine trade-off!
+
+On the other hand, materializing a shared trunk fixes the space of its
+possible implementations. In particular (as touched on in [@TODO]) it
+prevents us from exploiting highly selective constraints provided by
+individual analysts to cut down on the number of tuples produced by
+each flow.
+
+In the specific case of the `comment` relation, this might not be a
+problem, as the number of tuples produced during its derivation is
+proportional to the number of comments in the system. For other
+relations (for example the transitive graph induced by the
+`:person/knows` relation) it might lead to catastrophic plans.
+
+Whenever we are considering to build multiple dataflows off of a
+shared trunk, we must therefore estimate whether the shared trunk is
+*sufficiently constrained*. This brings us back to the problem
+initially observed in [[@TODO chapter on lazy evaluation]]. After all
+our work to avoid heuristics and cardinality estimation, this would
+re-introduce an element of unpredictability into the behaviour of our
+system.
+
+Additionally, once we've made the decision to share a flow, we must
+commit to maintaining it for as long as any dependent flows are
+active. Sharing via arrangements, in the current implementation, also
+causes some subtle coupling that can cause problems, if dependent
+dataflows don't make progress at roughly the same pace:
+
+> [...] by sharing the data we also need to share the restrictions we
+> impose on the data when it comes to compaction of the history. If we
+> have some operator that is failing to move forward in time, or doing
+> so slowly, it may require the trace maintain historical data that
+> others do not need so that it can operate correctly. Other operators
+> will have to flip through historical distinctions that they
+> themselves wouldn't have maintained, and could execute less
+> efficiently than if they had their own personally compacted
+> representation.
+> 
+> - from [[https://github.com/frankmcsherry/blog/blob/master/posts/2017-05-01.md][Making Arrangements]]
+
+### Multi-Tenant Dataflows
+
+Luckily, an additional implementation strategy is available to us: we
+can model multi-tenancy within the data plane itself. Recall the query
+from earlier:
+
+``` clojure
+[:find ...
+ :where
+ (comment ?comment ?place ...)
+ [?place :place/name "Zurich"]]
+```
+
+As a first step, we will re-write this query, replacing the explicit
+filter by a parameter input, drawn from an additional parameter
+attribute.
+
+``` clojure
+[:find ...
+ :where
+ (comment ?comment ?place ...)
+ [?place :place/name ?name-filter]
+ [_ :parameter/place-name ?name-filter]]
+```
+
+This is useful in an of itself, because it gives us the ability to
+update the filter parameter (with updated results derived
+incrementally as usual), without registering separate queries.
+
+It takes only a few extensions to generalize this approch to multiple
+concurrent users.
+
+First, we must indicate to 3DF, that the `:parameter/place-name`
+attribute adheres to special semantics. In particular, we must
+enforce, that clients may only add or retract values to it, they can
+not control the keys. Where usually a transaction would take the form
+`[:db/add <eid> :parameter/place-name <value>]`, 3DF will only allow
+`[:db/add :parameter/place-name <value>]`.
+
+Rather, for all updates from a specific client, we will automatically
+associate that client's connection token as the key. This way, we can
+distinguish between parameters from different client. We make use of
+this information to route results correctly to their respective
+clients.
+
+This allows us to use a single dataflow for all `n` analysts, while
+still being able to move the `:place/name` constraints into the same,
+worst-case optimal query plan.
+
+We find precedence for this approach in the NiagaraCQ system by Chen
+et al.[[@TODO]].
+
+> NiagaraCQ implements sharing even when operators differn in certain
+> constants, by implementing the operators using relational joins
+> against the table of constants [Chen et al. 2000].
+> 
+> - Hirzel et al.
+
+### Other Strategies
+
+Again from Hirzel et al. we learn that 
+
+> YFilter implements sharing between applications written in a subset
+> of XPath by compiling them all into a combined NFA [Diao et
+> al. 2002].
+
+Similar NFA-based approaches can be found in the literature on complex
+event processing [[@TODO Pattern Matching over Event Streams]]. While
+such methods are available to us in Timely Dataflow (e.g. via the
+built-in `StateMachine` operator), they do not fit cleanly into the
+relational model implemented by 3DF and Differential Dataflow. The
+question of whether the two approaches can be combined in a sensible
+way is left for future inquiry.
+
 ## Remedy
 
 Here we are meeting again a trade-off identified in the very first
 scenario we analysed, [[Case 0]].
+
+## Sources
+
+- [0] Niagara Paper
+- [1] [Making Arrangements](https://github.com/frankmcsherry/blog/blob/master/posts/2017-05-01.md)
+- [2] Catalog paper
+- [3] Pattern Matching over Event Streams
