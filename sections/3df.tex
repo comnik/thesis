@@ -11,26 +11,26 @@ unit of modeling are \textbf{facts}, which are represented by `[e a
 associated with it the attribute a, with a value v". 3DF currently
 supports the following value types:
 
-``` rust
-enum Value \{
-    \emph{/} An entity identifier
+\begin{lstlisting}[language=Rust, style=colouredRust]
+enum Value {
+    // An entity identifier
     Eid(u64),
-    \emph{/} An attribute identifier
+    // An attribute identifier
     Aid(String),
-    \emph{/} A string
+    // A string
     String(String),
-    \emph{/} A boolean
+    // A boolean
     Bool(bool),
-    \emph{/} A 64 bit signed integer
+    // A 64 bit signed integer
     Number(i64),
-    \emph{/} A 32 bit rational
+    // A 32 bit rational
     Rational32(Rational32),
-    \emph{/} Milliseconds since midnight, January 1, 1970 UTC
+    // Milliseconds since midnight, January 1, 1970 UTC
     Instant(u64),
-    \emph{/} A 16 byte unique identifier.
+    // A 16 byte unique identifier.
     Uuid([u8; 16]),
-\}
-```
+}
+\end{lstlisting}
 
 We use 64bit unsigned integers to identify entities and string names
 starting with a colon to identify attributes (e.g. `:person/name`,
@@ -41,20 +41,20 @@ dataflows individually.
 This flexible approach of breaking schemas down into individual
 attributes corresponds to a fully normalized relational model, and is
 heavily inspired by RDF, research on triple stores, or database
-systems like Datomic and LogicBlox. \texttt{@TODO sources: rdf, triple
-stores, Datomic, LogicBlox}. It allows to configure important
-semantics, such as data validation, access and privacy policies,
-compaction, and indexing strategy at a much more fine-grained level
-than a traditional database schema could accomodate. Other
-organizational aspects such as documentation and namespacing are also
-most naturally expressed at the level of the individual attribute.
+systems like Datomic (\cite{datomic}) and LogicBlox
+(\cite{aref2015design}). It allows to configure important semantics,
+such as data validation, access and privacy policies, compaction, and
+indexing strategy at a much more fine-grained level than a traditional
+database schema could accomodate. Other organizational aspects such as
+documentation and namespacing are also most naturally expressed at the
+level of the individual attribute.
 
 It is well established that data processing systems with data models
 optimized for a specific domain can outperform general-purpose systems
 by one or more orders of magnitude. Today, users can (in addition to
 traditional RDBMS) choose from column-stores designed for analytical
 queries, databases for time-series, graphs, or geographical data,
-search engines, and many more @TODO.
+search engines, and many more.
 
 We strongly believe that the next generation of query processors must
 take into account the needs of the emerging data-science community, as
@@ -96,13 +96,13 @@ neccessary attributes, but incur frequent multi-way joins across
 relations of potentially highly varying selectivities.
 
 Motivated by these considerations and with further inspiration from
-the LogicBlox and Datomic systems[0, 1], we model all data in sixth
-normal form, meaning that every attribute is represented as a separate
+the LogicBlox and Datomic systems, we model all data in sixth normal
+form, meaning that every attribute is represented as a separate
 relation. This comes with a number of trade-offs, whose detailed
 investigation is not the focus of this work. In addition to the
-treatment in Aref et al.\footnote{[Aref et al., Design and Implementation of the LogicBlox System](../sources/logicblox.pdf)}, we find that this model is well suited to
-dealing with many heterogeneous sources and maps naturally to Datalog
-expressions.
+treatment in \cite{aref2015design}, we find that this model is well
+suited to dealing with many heterogeneous sources and maps naturally
+to Datalog expressions.
 
 \subsubsection{Implementation}
 

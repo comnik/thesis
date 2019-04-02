@@ -56,7 +56,7 @@ in Zurich, a query might look like the following:
 Given `n` analysts, we can service their queries in three different
 ways.
 
-\#\subsection{Shared Nothing}
+\subsection{Shared Nothing}
 
 We create `n` indepedent dataflows, sharing only the base
 relations. This gives us the greatest freedom to pick the best
@@ -73,19 +73,18 @@ Computing multiple redundant instance of a plan where worst-case
 optimal execution improves the asymptotic complexity can still be
 significantly cheaper.
 
-\#\subsection{Shared Trunk}
+\subsection{Shared Trunk}
 
-Differential's \textbf{arrangements} allow us to re-use materialized
+Differential's \emph{arrangements} allow us to re-use materialized
 relations between dataflows. We could therefore create a single
 dataflow deriving the `comment` relation, on top of which `n`
 specialized dataflows will be only be responsible for implementing the
 specific additional joins requested by each analyst. Because
 arrangements materialize tuples into sorted batches, doing so will
 cost extra storage proportional in the size of the `comment` relation
-(on top of the base relations) (c.f. [@TODO chapter on redundant join
-state]).
+(on top of the base relations) (c.f. \ref{case-join-state}).
 
-Sharing a common part of the dataflow (a \textbf{shared trunk}) avoids
+Sharing a common part of the dataflow (a \emph{shared trunk}) avoids
 redundant derivations of the `comment` relation and significantly
 reduces the total number of dataflow elements created (a super-linear
 reduction in case of delta-queries), at the cost of some extra storage
@@ -105,11 +104,10 @@ relations (for example the transitive graph induced by the
 
 Whenever we are considering to build multiple dataflows off of a
 shared trunk, we must therefore estimate whether the shared trunk is
-\textbf{sufficiently constrained}. This brings us back to the problem
-initially observed in \texttt{@TODO chapter on lazy evaluation}. After all
-our work to avoid heuristics and cardinality estimation, this would
-re-introduce an element of unpredictability into the behaviour of our
-system.
+\emph{sufficiently constrained}. This brings us back to the problem
+initially observed in \ref{case-eagerness}. After all our work to
+avoid heuristics and cardinality estimation, this would re-introduce
+an element of unpredictability into the behaviour of our system.
 
 Additionally, once we've made the decision to share a flow, we must
 commit to maintaining it for as long as any dependent flows are
@@ -129,7 +127,7 @@ dataflows don't make progress at roughly the same pace:
 > 
 > - from \href{https://github.com/frankmcsherry/blog/blob/master/posts/2017-05-01.md}{Making Arrangements}
 
-\#\subsection{Multi-Tenant Dataflows}
+\subsection{Multi-Tenant Dataflows}
 
 Luckily, an additional implementation strategy is available to us: we
 can model multi-tenancy within the data plane itself. Recall the query
@@ -178,30 +176,30 @@ This allows us to use a single dataflow for all `n` analysts, while
 still being able to move the `:place/name` constraints into the same,
 worst-case optimal query plan.
 
-We find precedence for this approach in the NiagaraCQ system by Chen
-et al.\texttt{@TODO}.
+We find precedence for this approach in the NiagaraCQ system by
+\cite{chen2000niagaracq}.
 
 > NiagaraCQ implements sharing even when operators differn in certain
 > constants, by implementing the operators using relational joins
-> against the table of constants [Chen et al. 2000].
+> against the table of constants \cite{chen2000niagaracq}.
 > 
-> - Hirzel et al.
+> - \cite{hirzel2014catalog}
 
-\#\subsection{Other Strategies}
+\subsection{Other Strategies}
 
-Again from Hirzel et al. we learn that 
+Again from \cite{hirzel2014catalog} we learn that
 
 > YFilter implements sharing between applications written in a subset
 > of XPath by compiling them all into a combined NFA [Diao et
 > al. 2002].
 
 Similar NFA-based approaches can be found in the literature on complex
-event processing \texttt{@TODO Pattern Matching over Event Streams}. While
-such methods are available to us in Timely Dataflow (e.g. via the
-built-in `StateMachine` operator), they do not fit cleanly into the
-relational model implemented by 3DF and Differential Dataflow. The
-question of whether the two approaches can be combined in a sensible
-way is left for future inquiry.
+event processing (e.g. \cite{agrawal2008}). While such methods are
+available to us in Timely Dataflow (e.g. via the built-in
+`StateMachine` operator), they do not fit cleanly into the relational
+model implemented by 3DF and Differential Dataflow. The question of
+whether the two approaches can be combined in a sensible way is left
+for future inquiry.
 
 \subsection{Identifying Opportunities For Sharing}
 
@@ -250,5 +248,5 @@ efficient in-place updates).
 \item \footnote{DEFINITION NOT FOUND.} Catalog paper
 \item \footnote{DEFINITION NOT FOUND.} Pattern Matching over Event Streams
 \end{itemize}
-% Emacs 25.3.1 (Org mode 8.2.10)
+
 \end{document}
