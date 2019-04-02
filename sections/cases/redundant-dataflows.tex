@@ -2,7 +2,7 @@
 
 \begin{document}
 
-\subsection{Problem}
+\subsubsection{Problem}
 
 Throughout the previous chapters we have seen how delta queries and
 worst-case optimal join algorithms make much of 3DF's design
@@ -16,7 +16,7 @@ almost all opportunities for sharing state between dataflows.
 Naturally, this limits the number of clients we can support
 concurrently.
 
-\subsection{Example}
+\subsubsection{Example}
 
 [@TODO analyst queries]
 
@@ -56,7 +56,7 @@ in Zurich, a query might look like the following:
 Given `n` analysts, we can service their queries in three different
 ways.
 
-\subsection{Shared Nothing}
+\subsubsection{Shared Nothing}
 
 We create `n` indepedent dataflows, sharing only the base
 relations. This gives us the greatest freedom to pick the best
@@ -73,7 +73,7 @@ Computing multiple redundant instance of a plan where worst-case
 optimal execution improves the asymptotic complexity can still be
 significantly cheaper.
 
-\subsection{Shared Trunk}
+\subsubsection{Shared Trunk}
 
 Differential's \emph{arrangements} allow us to re-use materialized
 relations between dataflows. We could therefore create a single
@@ -127,7 +127,7 @@ dataflows don't make progress at roughly the same pace:
 > 
 > - from \cite{makingarrangements}
 
-\subsection{Multi-Tenant Dataflows}
+\subsubsection{Multi-Tenant Dataflows}
 
 Luckily, an additional implementation strategy is available to us: we
 can model multi-tenancy within the data plane itself. Recall the query
@@ -185,7 +185,7 @@ We find precedence for this approach in the NiagaraCQ system by
 > 
 > - \cite{hirzel2014catalog}
 
-\subsection{Other Strategies}
+\subsubsection{Other Strategies}
 
 Again from \cite{hirzel2014catalog} we learn that
 
@@ -201,7 +201,7 @@ model implemented by 3DF and Differential Dataflow. The question of
 whether the two approaches can be combined in a sensible way is left
 for future inquiry.
 
-\subsection{Identifying Opportunities For Sharing}
+\subsubsection{Identifying Opportunities For Sharing}
 
 Finding common sub-structures across query plans that would be
 suitable for either of the approaches outlined above is in general a
@@ -219,12 +219,12 @@ underlying joins, such as `Transform` and `Aggregate`.
 
 \texttt{@TODO}
 
-\subsection{Remedy}
+\subsubsection{Remedy}
 
 Here we are meeting again a trade-off identified in the very first
 scenario we analysed, \texttt{Case 0}.
 
-\subsection{Future Work}
+\subsubsection{Future Work}
 
 We think that expressing multi-tenancy within the data plane is a very
 powerful implementation strategy for dataflow systems. Still we might

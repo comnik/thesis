@@ -2,7 +2,7 @@
 
 \begin{document}
 
-\subsection{Problem}
+\subsubsection{Problem}
 
 Working with a declarative query language such as 3DF, users are
 encouraged to think of their domain in terms of attributes, entities,
@@ -23,17 +23,17 @@ identified in \texttt{Problem Description}: The user is merely following
 the declarative interaction model we are actively encouraging, and
 gets punished for doing so!
 
-\subsection{Example}
+\subsubsection{Example}
 
 An example of this problematic scenario in the context of the social
 graph domain is any transitive relation between persons, such as
 `:person/knows` or `:person/friends-with`. A common rule for
 recursively capturing such transitive closures might be:
 
-``` clojure
+\begin{verbatim}
 [(knows ?a ?b) [?a :person/knows ?b]]
 [(knows ?a b) [?a :person/knows ?x] (knows ?x ?b)]
-```
+\end{verbatim}
 
 From the developers perspective, this rule is tremendously useful,
 because it abstracts away a complex (in the distributed setting),
@@ -44,25 +44,26 @@ Differential arrangement has disastrous consequences, as it will
 materialize and index(!) the full transitive closure of the social
 graph.
 
-\subsection{Remedy}
+\subsubsection{Remedy}
 
 Luckily, generic rules rarely used in isolation, i.e. without any more
 specific constraints applied (in the same sense that a function is
 rarely evaluated for all possible parameters, but rather for a much
 smaller set of specific ones).
 
-As to the example of `:person/knows`, an application might at any
-given point be interested only in whether a few \textbf{specific} persons
-know of each other, or in exploring a limited number of hops in the
-social network of a person. Therefore a first remedy might be to hold
-back on synthesizing a rule until a client has expressed an active
-interest in it.
+As to the example of \texttt{:person/knows}, an application might at
+any given point be interested only in whether a few \emph{specific}
+persons know of each other, or in exploring a limited number of hops
+in the social network of a person. Therefore a first remedy might be
+to hold back on synthesizing a rule until a client has expressed an
+active interest in it.
 
-Assume the definition of the `knows` rule is available on the server,
-once a client has registered it, but the corresponding dataflow isn't
-created until another client arrives with the following query:
+Assume the definition of the \texttt{knows} rule is available on the
+server, once a client has registered it, but the corresponding
+dataflow isn't created until another client arrives with the following
+query:
 
-``` clojure
+\begin{verbatim}
 ;; Is there a pair of users named Alice and Bob, 
 ;; which know of each other?
 
@@ -71,7 +72,7 @@ created until another client arrives with the following query:
  [?x :person/firstname "Alice"]
  [?y :person/firstname "Bob"]
  (knows ?x ?y)]
-```
+\end{verbatim}
 
 Now the resulting computation is much less problematic, because we
 need only explore the transitive closure between persons named either
@@ -87,7 +88,7 @@ reason about what the best evaluation strategy is.
 [@TODO first user interested in a query has to wait longer, is that a
 problem?]
 
-\subsection{Big Picture}
+\subsubsection{Big Picture}
 
 We've seen how semantically meaningful rules are often terribly
 underconstrained.
@@ -109,5 +110,5 @@ downstream computations are shut down.
 
 We will explore this trade-off in much greater detail in the following
 scenarios.
-% Emacs 25.3.1 (Org mode 8.2.10)
+
 \end{document}
