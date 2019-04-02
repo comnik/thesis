@@ -329,8 +329,12 @@ variable orderings. For now, we will try to provide some intuition.
 
 ### Future Work
 
-Eventually we don't even want to call `count` on bindings that we now
+Eventually we don't even want to call `count` on bindings that we know
 should only ever constrain. [@TODO]
+
+## Multi-tenant Routing
+
+
 
 ## Source
 
