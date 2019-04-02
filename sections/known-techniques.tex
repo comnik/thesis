@@ -12,9 +12,9 @@ It quickly becomes infeasible to re-evaluate all rules on every
 input. Specialized algorithms are employed to efficiently determine
 the subset of rules that might possibly be affected by a new
 input. Those rules are then re-evaluated. The RETE algorithm due to
-Forgy\texttt{@TODO} is the archetypical pattern-matching algorithm powering
-rule engines. PHREAK \texttt{@TODO source} is a collection-oriented
-alternative to the tuple-by-tuple RETE.
+Forgy (\cite{forgy1989rete}) is the archetypical pattern-matching
+algorithm powering rule engines. PHREAK \cite{drools} is a
+collection-oriented alternative to the tuple-by-tuple RETE.
 
 \subsection{Traditional Query Optimization}
 
@@ -24,14 +24,14 @@ planning is the task of, given a tree structure of relational
 operators, determining the most efficient order in which to execute
 these operators without affecting the result set.
 
-Selinger et al.\footnote{[Selinger et al., Access Path Selection in a RDMS](../sources/access-path-selection.pdf)} give the canonical query planner, split into three
-components: cardinality estimation, plan space enumeration, and a cost
-model. This seminal work, done for the System R DBMS, first
+\cite{selinger1979access} give the canonical query planner, split into
+three components: cardinality estimation, plan space enumeration, and
+a cost model. This seminal work, done for the System R DBMS, first
 established the practicality of declarative query languages and — to
 this day — serves as the reference architecture for many modern
 databases in productive use.
 
-Selinger et al. introduce the concept of an \textbf{access path}. Access
+Selinger et al. introduce the concept of an \emph{access path}. Access
 paths represent the different ways of accessing the tuples in a
 relation. The simplest access path is a full scan of the relation, but
 various indices might be available as well.
@@ -66,31 +66,32 @@ estimation combined with plan enumeration stays the same.
 
 It is well established[3,4], that cardinality estimation is both the
 most important part of traditional query optimization, as well as the
-hardest to get right. Leis et al.\footnote{[Leis et al., How Good Are Query Optimizers, Really?](../sources/how-good-are-optimizers-really.pdf)} show that estimation errors grow
-exponentially with the number of joins for a representative selection
-of modern relational DBMS. They also show that correct cardinality
-estimates are much more important for plan performance than more
-accurate cost models. Due to 3DFs highly normalized data model, a
-large class of relevant queries require multi-way joins across many
-base relations. This implies that 3DF would be exceedingly sensitive
-to these kinds of ballooning errors.
+hardest to get right. \cite{leis2015good} show that estimation errors
+grow exponentially with the number of joins for a representative
+selection of modern relational DBMS. They also show that correct
+cardinality estimates are much more important for plan performance
+than more accurate cost models. Due to 3DFs highly normalized data
+model, a large class of relevant queries require multi-way joins
+across many base relations. This implies that 3DF would be exceedingly
+sensitive to these kinds of ballooning errors.
 
 Neither the importance of cardinality estimation, nor the difficulty
 of doing it correctly are surprising. Until recently, most strategies
 for planning multi-way joins consisted of breaking down an n-way join
 into a (hopefully optimal) sequence of two-way joins. In such a
 setting, accurate cardinality estimation of the result of joining two
-relations (also known as the join's \textbf{selectivity}) is crucial, in
+relations (also known as the join's \emph{selectivity}) is crucial, in
 order to pick a plan that materializes as few tuples as possible.
 
-As Lohman notes in \footnote{[Lohman, Is Query Optimization A Solved Problem?](../sources/is-query-optimization-a-solved-problem.pdf)}, many modern systems still compute their
-estimates following assumptions originally proposed for System R:
+As Lohman notes in \cite{lohman2014query}, many modern systems still
+compute their estimates following assumptions originally proposed for
+System R:
 
-\textbf{\textbf{Uniformity}} @TODO
+\textbf{Uniformity} @TODO
 
-\textbf{\textbf{Principle of inclusion}} Join-key domains are assumed to
+\textbf{Principle of inclusion} Join-key domains are assumed to
 overlap. This is a valid assumption for joins on base relations with
-referential integrity constraints. 
+referential integrity constraints.
 
 For the kinds of queries 3DF is interested in, this assumption breaks
 down. Consider for example the query `[?u1 :name ?n] [?u2 :name ?n]`
@@ -99,10 +100,10 @@ enforce referential integrity on usernames. Similarly a query such as
 `[?u1 :name ?n] [?u1 :salary ?s] [(> ?s 1000)]` can easily violate
 this assumption, if we filter the `:salary` relation before joining.
 
-\textbf{\textbf{Independent predicates}} Multiple conjunctive predicates on the same
-relation are assumed to be independent, allowing for their combined
-selectivity to be computed as the product of their individual
-selectivities. 
+\textbf{Independent predicates} Multiple conjunctive predicates on the
+same relation are assumed to be independent, allowing for their
+combined selectivity to be computed as the product of their individual
+selectivities.
 
 This assumption is especially dangerous, because it can lead to
 situations in which additional predicates (provided by the user) lead
@@ -110,9 +111,9 @@ to a significantly worse-performing plan being picked. Such an
 experience is irreconcilable with our maxime of predictable, robust
 performance and our desire to provide a declarative interaction model.
 
-\textbf{\textbf{Global information}} Traditional optimizers assume that they have
-access to up-to-date, accurate statistics on all query inputs (for
-some definition of up-to-date and accurate). 
+\textbf{Global information} Traditional optimizers assume that they
+have access to up-to-date, accurate statistics on all query inputs
+(for some definition of up-to-date and accurate).
 
 This is less and less true in today's architectures. 3DF derives a big
 part of its value from the ability to provide a unified query
@@ -130,11 +131,11 @@ A more recent field of research explored the idea, that if disastrous
 plans would have to be expected from time to time, systems might be
 able to detect them and adapt on the fly.
 
-Avnur and Hellerstein \texttt{@TODO} introduced a new query processing
-architecture, called \textbf{eddies}, which continuously reorders operators
-as it runs. In a dataflow settings, this is best imagined as an
-additional dataflow operator routing input tuples between a set of
-candidate operators.
+\cite{avnur2000eddies} introduced a new query processing architecture,
+called \emph{Eddies}, which continuously reorders operators as it
+runs. In a dataflow settings, this is best imagined as an additional
+dataflow operator routing input tuples between a set of candidate
+operators.
 
 Such an architecture has additional benefits for long-running queries,
 as we might not want to spend a lot of time on fine-grained planning
@@ -143,22 +144,23 @@ as we gather more statistics about runtime behaviour.
 
 \subsection{Stream Optimization}
 
-Hirzel et al. \texttt{@TODO} helpfully provide a catalog of the most common
-optimizations in stream processing, of which we will highlight a few.
+\cite{hirzel2014catalog} helpfully provide a catalog of the most
+common optimizations in stream processing, of which we will highlight
+a few.
 
-\textbf{\textbf{Operator Reordering}} is a much simpler version of the ideas
+\textbf{Operator Reordering} is a much simpler version of the ideas
 discussed in the previous chapters. The basic idea is to move more
 selective operators upstream, in order to minimize the number of
 tuples propagated downstream.
 
-\textbf{\textbf{Redundancy Elimination}} attempts to remove redundant operators,
+\textbf{Redundancy Elimination} attempts to remove redundant operators,
 e.g. by moving equivalent operators on two branches of a dataflow into
 their shared trunk.
 
-\textbf{\textbf{State Sharing}} avoids unnecessary copies of data, by allowing
+\textbf{State Sharing} avoids unnecessary copies of data, by allowing
 operators to access a shared piece of state (e.g. an index).
 
-\textbf{\textbf{Batching}} exploits the fact that many operators can amortize
+\textbf{Batching} exploits the fact that many operators can amortize
 processing across many inputs.
 
 An interesting trade-off between pushing selective operators upstream
@@ -170,7 +172,7 @@ flowing downstream.
 
 Hirzel et al. again cite more sophisticated techniques to share
 dataflow elements in a multi-tenant setting. We will come back to
-these in chapter \texttt{@TODO}.
+these in chapter \ref{case-redundant-dataflows}.
 
 A similar trade-off arises between separation of operators into
 smaller computational steps in order to exploit pipeline parallelism,
@@ -184,12 +186,12 @@ compacted and sorted batches of tuples between operators.
 
 \subsection{Efficient Representations}
 
-Abadi et al.[0] note that data stored in columns is more compressible
-than data stored in rows, because the former generally have lower
-information entropy and better value locality. Having established the
-column-inspired data model of 3DF in @TODO, we are now interested to
-what extent efficient, column-oriented representations can be
-exploited in differential collections.
+\cite{abadi2013design} note that data stored in columns is more
+compressible than data stored in rows, because the former generally
+have lower information entropy and better value locality. Having
+established the column-inspired data model of 3DF in \ref{3df}, we are
+now interested to what extent efficient, column-oriented
+representations can be exploited in differential collections.
 
 Again Abadi et al. list several common compression schemes employed in
 modern column-stores:
@@ -213,10 +215,6 @@ it directly on a (potentially compressed) single column.
 \subsubsection{Interning}
 
 @TODO
-
-\subsubsection{Sources}
-
-[0] [Abadi et al., The Design and Implementation of Modern Column-Oriented Database Systems](../sources/abadi-column-stores.pdf)
 
 \subsection{Conclusions}
 

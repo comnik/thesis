@@ -22,8 +22,8 @@ described above.
 
 \subsection{Timely Dataflow}
 
-Timely Dataflow[0] is an implementation of the cyclical dataflow model
-introduced by Murray, McSherry, and Isaacs in [1]. It is written in
+Timely Dataflow (\cite{timely}) is an implementation of the cyclical
+dataflow model introduced in \cite{murray2013naiad}. It is written in
 the Rust language. Timely Dataflow follows a data-parallel approach,
 meaning each worker in a Timely cluster runs the same dataflow
 computation with inputs partitioned between them.
@@ -56,13 +56,14 @@ results with (hopefully) small changes. In particular we would like to
 do so even for iterative computations which often arise in graph
 processing.
 
-Differential Dataflow[2] is a programming framework implementing
-differential dataflow[3] on top of Timely. It allows to express
-dataflow programs as functional transformations over
-\emph{collections} of data, using well-known functional operators such
-as `map`, `filter`, and `reduce`, and relational operators like
-`join`. Differential also allows to express iterative computations via
-operators such as `iterate`.
+Differential Dataflow (\cite{differential}) is a programming framework
+implementing differential dataflow (\cite{mcsherry2013differential})
+on top of Timely. It allows to express dataflow programs as functional
+transformations over \emph{collections} of data, using well-known
+functional operators such as \texttt{map}, \texttt{filter}, and
+\texttt{reduce}, and relational operators like
+\texttt{join}. Differential also allows to express iterative
+computations via operators such as \texttt{iterate}.
 
 Computations expressed in this model will be compiled down to Timely
 dataflows that will update efficently (i.e. incrementally) in response
@@ -82,12 +83,13 @@ With a robust implementation of differential dataflow available it
 becomes feasible to re-think the boundaries between the domain of
 analytical databases and that of near real-time stream processors.
 
-3DF[4] (short for \emph{Declarative Differential Dataflow}) is an
-attribute-oriented data model and accompanying query engine built on
-top of Differential Dataflow. Workers within a 3DF cluster will extend
-Timely workers with an event-driven server loop that accepts commands
-from external clients. In particular, clients can send query plans
-that are then synthesized into differential dataflows at runtime.
+3DF (\cite{declarative}, short for \emph{Declarative Differential
+  Dataflow}) is an attribute-oriented data model and accompanying
+query engine built on top of Differential Dataflow. Workers within a
+3DF cluster will extend Timely workers with an event-driven server
+loop that accepts commands from external clients. In particular,
+clients can send query plans that are then synthesized into
+differential dataflows at runtime.
 
 We will work within the existing 3DF codebase throughout this
 thesis. Thus, the next chapter is dedicated to describe the design and

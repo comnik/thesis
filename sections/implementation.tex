@@ -123,7 +123,7 @@ that haven't been shut down.
  (not [?x :timely.event.operates/shutdown? true])]
 ```
 
-\subsection{Bindings}
+\subsection{Bindings} \label{bindings}
 
 Over the course of this work it became evident that a few extensions
 to the query plan representation would be necessary to (a) better
@@ -132,44 +132,47 @@ processing and (b) canonicalize plan representation in order to expose
 more opportunities for sharing dataflows between multiple clients, as
 described in \texttt{@TODO}.
 
-From the discussion in Veldhuizen\footnote{[Veldhuizen, Leapfrog Triejoin: A Simple, Worst-Case Optimal Join Algorithm](../sources/leapfrog-triejoin.pdf)} we learn that the Leapfrog
-Triejoin worst-case optimal join algorithm can be utilized to
+From the discussion in \cite{veldhuizen2012leapfrog} we learn that the
+Leapfrog Triejoin worst-case optimal join algorithm can be utilized to
 implement many common features of relational query engines:
 conjunctions (joins), disjunctions (unions), negations (antijoins),
 and filtering by various predicates. This is achieved by additional
 implementations of the core trie iterator interface. Similar
 extensions exist within the worst-case optimal dataflow-join framework
-due to Ammar et al.\footnote{[Ammar, McSherry et al., Distributed Evaluation of Subgraph Queries Using Worst-case Optimal Low-Memory Dataflows](../sources/wco-differential.pdf)}, which we have integrated into 3DF as part of
-this work.
+due to \cite{ammar2018distributed}, which we have integrated into 3DF
+as part of this work.
 
 [@TODO Recall] that any participant in a worst-case optimal dataflow
 join must implement the `PrefixExtender` trait described in
 \texttt{@TODO}.
 
 For the purposes of the query language, we will refer to such
-implementations as \textbf{bindings}, for their property of binding possible
-values to variables. We've provided `PrefixExtender` implementations
-for attribute bindings, constants, binary predicates, and negation.
+implementations as \emph{bindings}, for their property of binding
+possible values to variables. We've provided \texttt{PrefixExtender}
+implementations for attribute bindings, constants, binary predicates,
+and negation.
 
 Some bindings, such as for predicates and negation, are exclusively
 constraining (shrinking the space of possible values for a given
 variable), others, such as attributes and constants, can also provide
 values.
 
-Converting between the existing clause language described in \texttt{@TODO}
+Converting between the existing clause language described in \ref{3df}
 and this new language of bindings is straightforward. The basic data
-pattern `[?e :a ?v]` is expressed as `MatchA(?e, :a, ?v)` and as
-`attribute(?e, :a, ?v)` respectively. `MatchEA` and `MatchAV` can be
-broken down into a `attribute(?e, :a, ?v)` combined with a
-`constant(?e, x)` or `constant(?v, x)` respectively.
+pattern \texttt{[?e :a ?v]} is expressed as \texttt{MatchA(?e, :a,
+  ?v)} and as \texttt{attribute(?e, :a, ?v)}
+respectively. \texttt{MatchEA} and \texttt{MatchAV} can be broken down
+into a \texttt{attribute(?e, :a, ?v)} combined with a
+\texttt{constant(?e, x)} or \texttt{constant(?v, x)} respectively.
 
-The existing two-way join operator `Join(left, right)` is resolved as
-the union of resolving both child plans into their bindings.
+The existing two-way join operator \texttt{Join(left, right)} is
+resolved as the union of resolving both child plans into their
+bindings.
 
 @TODO antijoin
 
-`Filter` plan stages map directly onto the corresponding
-`binary$_{\text{predicate`}}$ binding.
+\texttt{Filter} plan stages map directly onto the corresponding
+\texttt{binary\_predicate} binding.
 
 Projections, aggregations, disjunctions, and functional transforms
 remain unchanged.
@@ -179,57 +182,57 @@ projections from the heavy-lifting required to resolve conjunctions
 has the added benefit of exposing additional opportunities for sharing
 dataflows between clients. Consider the following two queries.
 
-``` clojure
+\begin{verbatim}
 [:find ?person
-:where
-(rule ?person)
-[?person :person/name "Alice"]]
+ :where
+ (rule ?person)
+ [?person :person/name "Alice"]]
 
 [:find ?person
  :where
  (rule ?person)
  [?person :person/name "Bob"]]
-```
+\end{verbatim}
 
 We've described the various trade-offs to factor-in when considering
 to share the evaluation of `rule` between the two clients in chapter
 \texttt{@TODO}. Here we merely want to call attention to the resulting
 representation in the language of bindings.
 
-``` rust
-[into$_{\text{bindings}}$("rule"),
- attribute(?person, :person/name, ?name)
+\begin{verbatim}
+[into_bindings("rule"),
+ attribute(?person, :person/name, ?name),
  constant(?name, "Alice")]
 
-[into$_{\text{bindings}}$("rule"),
- attribute(?person, :person/name, ?name)
- constant(?name, "Bob")] 
-```
+[into_bindings("rule"),
+ attribute(?person, :person/name, ?name),
+ constant(?name, "Bob")]
+\end{verbatim}
 
-\#\subsection{A Worst-Case Optimal N-Way Join Operator}
+\subsection{A Worst-Case Optimal N-Way Join Operator}
 
 In order to be able to express the worst-case optimal join strategy
 explored throughout this work, a new query plan stage and
 corresponding operator implementation had to be added. We've based the
-present implementation off of \footnote{\url{https://github.com/TimelyDataflow/differential-dataflow/tree/master/dogsdogsdogs}} and \footnote{\url{https://github.com/frankmcsherry/dataflow-join}}. The resulting operator is
-called \textbf{Hector} and will be referred to as such throughout this
-chapter.
+present implementation off of \cite{dogsdogsdogs} and
+\cite{dataflowjoin}. The resulting operator is called \texttt{Hector}
+and will be referred to as such throughout this chapter.
 
 \texttt{@TODO GenericJoin lineage}
 
 At a high-level, the Hector operator provides the following
-capability: Given a set of bindings (as described in \texttt{Bindings}) and
-a set of target variables, find all possible variable assignments that
-satisfy all bindings. The following Hector plan stage would therefore
-be sufficient to express a simple triangle query:
+capability: Given a set of bindings (as described in \ref{bindings})
+and a set of target variables, find all possible variable assignments
+that satisfy all bindings. The following Hector plan stage would
+therefore be sufficient to express a simple triangle query:
 
-``` clojure
-\{Hector
- \{variables: [?a, ?b, ?c],
+\begin{verbatim}
+{Hector
+ {variables: [?a, ?b, ?c],
   bindings:  [attribute(?a, :edge, ?b),
               attribute(?b, :edge, ?c),
-              attribute(?a, :edge, ?c),]\}\}
-```
+              attribute(?a, :edge, ?c),]}}
+\end{verbatim}
 
 If no bindings are passed, Hector will throw an error. If a single
 binding is passed (which must be an `attribute` binding, as no other
@@ -239,38 +242,38 @@ onto the target variables.
 \texttt{@TODO n=2 case}
 
 For the general-arity case, Hector employs the delta-query technique
-explained in \texttt{@TODO}. This means that a separate dataflow will be
-constructed for each tuple-providing binding that may experience
+explained in \texttt{@TODO}. This means that a separate dataflow will
+be constructed for each tuple-providing binding that may experience
 change. Only `attribute` bindings can provide tuples in our current
 implementation. By default, all attributes are assumed to experience
 change. Continuing with our example, Hector would therefore create
 three dataflows. For each of them, we will refer to the generating
-binding as the \textbf{source binding} and to the corresponding dataflow as
-the \textbf{delta pipeline}.
+binding as the \emph{source binding} and to the corresponding dataflow
+as the \emph{delta pipeline}.
 
-``` clojure
-(1) d$_{\text{edge}}$(a, b) -> edge(b, c) -> edge(a, c)
-(2) d$_{\text{edge}}$(b, c) -> edge(a, b) -> edge(a, c)
-(3) d$_{\text{edge}}$(a, c) -> edge(a, b) -> edge(b, c)
-```
+\begin{verbatim}
+(1) d_edge(a, b) -> edge(b, c) -> edge(a, c)
+(2) d_edge(b, c) -> edge(a, b) -> edge(a, c)
+(3) d_edge(a, c) -> edge(a, b) -> edge(b, c)
+\end{verbatim}
 
 All delta pipelines are executed concurrently at the dataflow
 level. This can lead to inconsistencies as we might derive the same
 output change on multiple pipelines, when sources change
 concurrently. Assume for example we have a graph containing the
-triangle `[100 200 300]`, formed by the edges `(100 200)`, `(200
-300)`, and `(100 300)`. A single change `((100 200) -1)` to the
-`:edge` attribute will cause all three pipelines to derive the same
-retraction `([100 200 300] -1)`.
+triangle $[100,200,300]$, formed by the edges $(100,200)$,
+$(200,300)$, and $(100,300)$. A single change $((100,200),-1)$ to the
+\texttt{:edge} attribute will cause all three pipelines to derive the
+same retraction $([100,200,300],-1)$.
 
 To prevent this, we must impose a logical order on the computation. In
 particular, we must ensure that the retraction of \texttt{@TODO}
 
 Delta pipelines are therefore created within a new, nested scope
 carrying the `AltNeu` timestamp type. Upon use, attributes such as
-`:edge` are imported and wrapped with the corresponding `AltNeu`
-timestamp. We cache imported arrangements by attribute name, to
-prevent redundant imports.
+\texttt{:edge} are imported and wrapped with the corresponding
+\texttt{AltNeu} timestamp. We cache imported arrangements by attribute
+name, to prevent redundant imports.
 
 Recall that a worst-case optimal join picks an appropriate variable
 order (more on this crucial step later), along which a collection of
@@ -279,7 +282,7 @@ bind more and more symbols. While conceptually this is correct, it
 does not translate directly into the dataflow setting. Dataflows must
 always start with some source of input. In our case, the finest
 grained source of input available are tuple-providing bindings,
-i.e. the `attribute` binding — which already binds two symbols!
+i.e. the \texttt{attribute} binding — which already binds two symbols!
 
 In order to consider changes to each individual variable separately,
 we could break attributes further down into unified input collections
@@ -290,24 +293,25 @@ of length two.
 
 In order to get away with this we must make sure to handle conflicts
 on the variables of each source binding. Consider a Hector plan stage
-involving (possibly amongst others) both an `attribute(?user,
-:user/name, ?name)` and a `constant(?name, "Alice")` binding. When
-creating the delta pipeline starting from the `:user/name` attribute,
-we would never give the constant binding a chance to narrow down the
-collection of all usernames to just those equal to "Alice".
+involving (possibly amongst others) both an \texttt{attribute(?user,
+  :user/name, ?name)} and a \texttt{constant(?name, "Alice")}
+binding. When creating the delta pipeline starting from the
+\texttt{:user/name} attribute, we would never give the constant
+binding a chance to narrow down the collection of all usernames to
+just those equal to "Alice".
 
 It is straightforward to detect such conflicts for a given source
 binding, as we can look for any of the remaining bindings for which
 all of their variables are already bound by the prefix. In our
-example, the constant binding binds only `?name`, which is already
-bound by the prefix `[?user ?name]`.
+example, the constant binding binds only \texttt{?name}, which is
+already bound by the prefix \texttt{[?user ?name]}.
 
-The same can happen for attribute bindings. Consider `attribute(?a,
-:edge, ?b)` and `attribute(?b, :edge, ?a)`, bindings which express a
-symmetry constraint between two nodes in a directed graph. Sourcing
-the first attribute would lead to `[?a ?b]` prefixes, and vice
-versa. In both cases, the other binding would never get a chance to
-participate in prefix extension.
+The same can happen for attribute bindings. Consider
+\texttt{attribute(?a, :edge, ?b)} and \texttt{attribute(?b, :edge,
+  ?a)}, bindings which express a symmetry constraint between two nodes
+in a directed graph. Sourcing the first attribute would lead to
+\texttt{[?a ?b]} prefixes, and vice versa. In both cases, the other
+binding would never get a chance to participate in prefix extension.
 
 In our current implementation, Hector detects all conflicts, but only
 handles those with constant bindings. This is done by filtering the
@@ -316,11 +320,11 @@ filtering}.
 
 For the following we will again assume that a suitable variable order
 is at hand. We look at the variable order, and the variables bound by
-the current prefix and determine from that the next variable `x`, to
+the current prefix and determine from that the next variable $x$, to
 which prefixes should be extended. Ignoring the source binding, we
 then filter all other bindings down to only those that bind ("talk
-about") `x`. Here we also skip bindings that are not \textbf{ready} to
-participate in prefix extension to `x`. We will describe this notion
+about") $x$. Here we also skip bindings that are not \emph{ready} to
+participate in prefix extension to $x$. We will describe this notion
 in greater detail when discussing the problem of finding suitable
 variable orderings. For now, we will try to provide some intuition.
 
@@ -329,15 +333,11 @@ variable orderings. For now, we will try to provide some intuition.
 ``` clojure
 ```
 
-\#\subsection{Future Work}
+\subsection{Future Work}
 
-Eventually we don't even want to call `count` on bindings that we know
-should only ever constrain. [@TODO]
+Eventually we don't even want to call \texttt{count} on bindings that
+we know should only ever constrain. [@TODO]
 
 \subsection{Multi-tenant Routing}
 
-
-
-\subsection{Source}
-% Emacs 25.3.1 (Org mode 8.2.10)
 \end{document}
