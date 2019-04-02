@@ -5,11 +5,11 @@
 \subsection{Data Model}
 
 We adopt a unified, attribute-oriented data model. The fundamental
-unit of modeling are \textbf{facts}, which are represented by `[e a
-  v]`-tuples (short for \textbf{entity}, \textbf{attribute},
-\textbf{value}). Each triplet is to be read as "Entity e has
-associated with it the attribute a, with a value v". 3DF currently
-supports the following value types:
+unit of modeling are \emph{facts}, which are represented by \texttt{[e
+    a v]}-tuples (short for \emph{entity}, \emph{attribute},
+\emph{value}). Each triplet is to be read as ``Entity e has associated
+with it the attribute a, with a value v''. 3DF currently supports the
+following value types:
 
 \begin{lstlisting}[language=Rust, style=colouredRust]
 enum Value {
@@ -32,11 +32,16 @@ enum Value {
 }
 \end{lstlisting}
 
+Although conceptually we are modelling a single space of facts as it
+evolves through logical time, we keep track of individual attributes
+in their own Differential collections. Attribute collections hold
+\texttt{(e, v)} pairs.
+
 We use 64bit unsigned integers to identify entities and string names
-starting with a colon to identify attributes (e.g. `:person/name`,
-`:comment/parent-post`). While the exact choice of types doesn't
-matter, it is this unification which frees us from having to compile
-dataflows individually.
+starting with a colon to identify attributes
+(e.g. \texttt{:person/name}, \texttt{:comment/parent-post}). While the
+exact choice of types doesn't matter, it is this unification which
+frees us from having to compile dataflows individually.
 
 This flexible approach of breaking schemas down into individual
 attributes corresponds to a fully normalized relational model, and is
@@ -63,7 +68,7 @@ further and investigating all of the broad implications this will have
 on database design is beyond the scope of this work, but we will point
 out two important, exemplary concerns.
 
-\textbf{Heterogeneous Sources}
+\subsubsection{Heterogeneous Sources}
 
 We can no longer assume that all inputs to a computation come from the
 same source (e.g. a traditional RDBMS). This is especially the case
@@ -81,7 +86,7 @@ This new reality is elegantly captured by a column-oriented approach,
 where sourcing information, data schema, and other semantics can be
 configured separately for each individual attribute.
 
-\textbf{Categorical Data}
+\subsubsection{Categorical Data}
 
 An important computational characteristic of modern statistical
 learning is the prevalence of categorical features, typically
@@ -103,13 +108,6 @@ investigation is not the focus of this work. In addition to the
 treatment in \cite{aref2015design}, we find that this model is well
 suited to dealing with many heterogeneous sources and maps naturally
 to Datalog expressions.
-
-\subsubsection{Implementation}
-
-Although conceptually we are modelling a single space of facts as it
-evolves through logical time, we keep track of individual attributes
-in their own Differential collections. Attribute collections hold `(e,
-v)` pairs.
 
 \subsubsection{One Size Fits All?}
 
@@ -148,46 +146,48 @@ primitives: selections, joins, projections, and set union. As
 mentioned above, Datalog draws its expressive power from recursive
 rules, which can be supported via iteration to fixed point. On top of
 those primitives, we want to support stratified logical negation
-("negation as set difference").
+(\emph{negation as set difference}).
 
-Differential comes with a built-in two-way `join` operator. Selections
-correspond to Differential's `filter` operator. Set union is expressed
-as `concat`. Projections are implemented as a `map` extracting the
-requested offsets from a stream of tuples. Set difference is
-implemented via the `antijoin` operator.
+Differential comes with a built-in two-way \texttt{join}
+operator. Selections correspond to Differential's \texttt{filter}
+operator. Set union is expressed as \texttt{concat}. Projections are
+implemented as a \texttt{map} extracting the requested offsets from a
+stream of tuples. Set difference is implemented via the
+\texttt{antijoin} operator.
 
 Timely and Differential support local iteration to fixed-point,
 meaning parts of the dataflow graph can be iterated independently from
 one another, and from the overall computation itself. Complex
 iteration patterns, such as mutual recursion, can be expressed by
-means of Differential's `Variable` abstraction. Variables represent
-collections that are not completely defined yet.
+means of Differential's \texttt{Variable} abstraction. Variables
+represent collections that are not completely defined yet.
 
 While relational languages usually provide set semantics, we will be
 reflecting the multi-set semantics implemented by Differential
-collections. Wherever necessary, the `distinct` operator can be used
-to enforce set semantics on a collection.
+collections. Wherever necessary, the \texttt{distinct} operator can be
+used to enforce set semantics on a collection.
 
 Within 3DF query plans are represented as trees of operator
-descriptions (\textbf{plan stages}). In addition to plan stages for the
+descriptions (\emph{plan stages}). In addition to plan stages for the
 operators described above, we provide stages for various aggregations
 on tuples, as well as data transforms and basic arithmetic via
 built-in functions.
 
-The leaf nodes of a query plan are made up out of \textbf{data patterns},
-which encode the supported access paths for facts:
+The leaf nodes of a query plan are made up out of \emph{data
+  patterns}, which encode the supported access paths for facts:
 
 \begin{itemize}
-\item \textbf{MatchA := [?e a ?v]} reads an entire attribute collection `a`.
-\item \textbf{MatchEA := [e a ?v]} reads all values associated with entity `e`
-for attribute `a`.
-\item \textbf{MatchAV := [?e a v]} reads all entity ids which have the value `v`
-associated with them for attribute `a`.
+\item \textbf{MatchA := [?e a ?v]} reads an entire attribute
+  collection $a$.
+\item \textbf{MatchEA := [e a ?v]} reads all values associated with
+  entity $e$ for attribute $a$.
+\item \textbf{MatchAV := [?e a v]} reads all entity ids which have the
+  value $v$ associated with them for attribute $a$.
 \end{itemize}
 
 We do not support variables in attribute position. Neither do we
 support a pattern for checking the existence of an individual fact
-(e.g. `MatchFact := [e a v]`).
+(e.g. \texttt{MatchFact := [e a v]}).
 
 \subsection{Input Sources}
 
