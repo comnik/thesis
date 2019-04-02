@@ -62,16 +62,16 @@ on top of Timely. It allows to express dataflow programs as functional
 transformations over \emph{collections} of data, using well-known
 functional operators such as \texttt{map}, \texttt{filter}, and
 \texttt{reduce}, and relational operators like
-\texttt{join}. Differential also allows to express iterative
+\texttt{join}. Differential also allows users to express iterative
 computations via operators such as \texttt{iterate}.
 
 Computations expressed in this model will be compiled down to Timely
 dataflows that will update efficently (i.e. incrementally) in response
 to arbitrary input changes.
 
-Differential Dataflow introduces the, to our knowledge novel, concept
-of \emph{Arrangements}. Arrangements maintain indexed batches of
-updates to a collection. The resulting indexed state can be shared
+Differential Dataflow also introduces the, to our knowledge novel,
+concept of \emph{Arrangements}. Arrangements maintain indexed batches
+of updates to a collection. The resulting indexed state can be shared
 between operators and allows for the dynamic creation of dataflows
 that can feed off of them.
 
