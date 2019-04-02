@@ -1,0 +1,131 @@
+\documentclass[../catalog.tex]{subfiles}
+
+\begin{document}
+
+\subsection{Problem}
+
+Recall from \texttt{Data Model} our opinions on data modeling needs of
+tomorrows information systems. In this world of normalized,
+attribute-oriented data, relational joins cannot be treated as scary,
+exceptional operations, but rather as commonplace, everyday tools.
+
+Even the most basic aggregation of data, obtaining a consistent view
+of domain entities over time, requires joining potentially many
+attributes.
+
+How to maintain robust, high-arity joins for many concurrent users
+with low-latency and high-throughput is perhaps the defining problem
+of the 3DF architecture.
+
+As discussed in \texttt{@TODO}, two approaches for implementing joins of
+arbitrary arity avail themselves to us. This section will focus on the
+traditional one, where n-way joins are implemented as sequences of
+two-way joins. Many stream processing systems materialize the output
+stream of a two-way join into an indexed representation, if they are
+to be-reused in other computations (rather than simply streamed
+through to the client directly) \texttt{@TODO}. In Differential Dataflow
+specifically, the `join` operator will arrange both of its input
+collections.
+
+This becomes problematic for 3DF, because any higher-arity join will
+therefore maintain arranged result sets along the spine of the join
+tree.
+
+\subsection{Example}
+
+Redundant join state becomes apparent in star-joins along highly
+correlated columns, e.g. one-to-one relations with very similar
+cardinalities and low selectivity. Unfortunately this is a very common
+use case in our attribute-oriented data model. Consider the following
+query.
+
+``` clojure
+[:find ?comment ?creationDate ?person ?ip ?browser \ldots{}
+ :where
+ [?comment :comment/creation-date ?creationDate]
+ [?comment :comment/creator ?person]
+ [?comment :comment/ip ?ip]
+ [?comment :comment/browser ?browser]
+ [?comment :comment/content ?content]
+ [?comment :comment/place ?place]]
+```
+
+This query implies a six-way join on the comment ids, aggregating six
+different comment attributes back into an aggregate view. Within the
+LDBC dataset, every comment carries all six of these attributes,
+s.t. all relations are of the same size, and map one-to-one onto each
+other. Because of this, implementing this query as five consecutive
+two-way joins would lead to roughly a threefold increase in the number
+of tuples maintained by this dataflow.
+
+[@TODO Joinjoinjoin plan illustration]
+
+[@TODO result illustration]
+
+Later on, we will encounter an even more pronounced version of this
+problem, when looking at sub-graph queries, such as the triangle
+search:
+
+``` clojure
+[:find ?a ?b ?c
+ :where
+ [?a :person/knows ?b]
+ [?b :person/knows ?c]
+ [?c :person/knows ?a]]
+```
+
+Here the attributes do not have a one-to-one correspondence
+anymore. Rather any initial two-way join between two of the edges of
+the triangle, will produce a result set proportional in size to the
+sum of the squares of the degrees in the graph induced by the
+`:person/knows` relation.
+
+\subsection{Remedy}
+
+[@TODO cite delta query sources]
+
+Adapting techniques from the field of delta queries, we can break up
+our queries along their potential sources of change. In our example,
+any of the comment attributes may change arbitrarily, which means we
+will end up with six separate queries.
+
+[@TODO delta plan illustration]
+
+What is different about the resulting plans, is that, given an indexed
+representation of all attributes, they can be implemented in an
+otherwise stateless manner. They do not need to maintain intermediate
+arrangements as was the case for the traditional join operator.
+
+[@TODO show results]
+
+Assuming for a second that dataflow elements are essentially free
+(they are not), this allows us to decouple the memory use of our
+system from the number of active queries and the complexity of the
+joins within, and instead bound it in the number and size of
+attributes maintained.
+
+There is a trade-off of course, as transforming plans into delta
+queries leads to an increase in the number of dataflow elements. We
+will see in our discussion of worst-case optimal streaming joins, that
+this increase can even be quadratic in the number of relations
+involved in the join.
+
+Within any given delta flow, an attribute may only appear at a
+position where either of its sides is already bound by the tuples
+flowing through it, in order to avoid having to produce the entire
+relation for each incoming tuple. We therefore would want to keep
+attributes indexed in both directions (from entity id to value and the
+other way around), to increase the number of possible plans available
+to us.
+
+Another subtle issue, identified in \texttt{0}, arises when implementing
+delta queries within the dataflow model. Simultaneous updates to
+multiple of the participating attributes can lead to redundant
+derivations of the same result tuple. We must be careful to impose a
+logical order on the execution.
+
+[@TODO describe AltNeu]
+
+\subsection{Sources}
+% Emacs 25.3.1 (Org mode 8.2.10)
+\end{document}

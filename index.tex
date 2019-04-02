@@ -1,0 +1,55 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fixltx2e}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{marvosym}
+\usepackage{wasysym}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{verbatim}
+\usepackage{natbib}
+\usepackage[masterthesis]{systems-cover}
+\usepackage{subfiles}
+
+\covernum{ 263-0800-00L	}
+\covertitle{ Optimising Distributed Dataflows in Interactive Environments }
+\coverauthor{ Nikolas Göbel }
+\coversupervisedby{ Frank McSherry, Gustavo Alonso }
+\coverdate{ November 2018 - April 2019 }
+
+\begin{document}
+
+\tableofcontents
+
+\section{Abstract} \label{abstract}
+
+\section{Introduction and Motivation} \label{intro}
+\subfile{sections/intro.tex}
+
+\section{Background} \label{background}
+\subfile{sections/background.tex}
+
+\section{Design and Implementation of 3DF} \label{3df}
+\subfile{sections/3df.tex}
+
+\section{Problem Description and Scope} \label{problem}
+\subfile{sections/problem.tex}
+
+\section{Known Techniques} \label{known-techniques}
+\subfile{sections/known-techniques.tex}
+
+\section{Performance Problems and Remedies} \label{catalog}
+\subfile{sections/catalog.tex}
+
+\section{Changes to 3DF} \label{implementation}
+\subfile{sections/implementation.tex}
+
+\end{document}

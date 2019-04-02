@@ -1,0 +1,211 @@
+\documentclass[../index.tex]{subfiles}
+
+\begin{document}
+
+\subsection{Data Model}
+
+We adopt a unified, attribute-oriented data model. The fundamental
+unit of modeling are \textbf{facts}, which are represented by `[e a
+  v]`-tuples (short for \textbf{entity}, \textbf{attribute},
+\textbf{value}). Each triplet is to be read as "Entity e has
+associated with it the attribute a, with a value v". 3DF currently
+supports the following value types:
+
+``` rust
+enum Value \{
+    \emph{/} An entity identifier
+    Eid(u64),
+    \emph{/} An attribute identifier
+    Aid(String),
+    \emph{/} A string
+    String(String),
+    \emph{/} A boolean
+    Bool(bool),
+    \emph{/} A 64 bit signed integer
+    Number(i64),
+    \emph{/} A 32 bit rational
+    Rational32(Rational32),
+    \emph{/} Milliseconds since midnight, January 1, 1970 UTC
+    Instant(u64),
+    \emph{/} A 16 byte unique identifier.
+    Uuid([u8; 16]),
+\}
+```
+
+We use 64bit unsigned integers to identify entities and string names
+starting with a colon to identify attributes (e.g. `:person/name`,
+`:comment/parent-post`). While the exact choice of types doesn't
+matter, it is this unification which frees us from having to compile
+dataflows individually.
+
+This flexible approach of breaking schemas down into individual
+attributes corresponds to a fully normalized relational model, and is
+heavily inspired by RDF, research on triple stores, or database
+systems like Datomic and LogicBlox. \texttt{@TODO sources: rdf, triple
+stores, Datomic, LogicBlox}. It allows to configure important
+semantics, such as data validation, access and privacy policies,
+compaction, and indexing strategy at a much more fine-grained level
+than a traditional database schema could accomodate. Other
+organizational aspects such as documentation and namespacing are also
+most naturally expressed at the level of the individual attribute.
+
+It is well established that data processing systems with data models
+optimized for a specific domain can outperform general-purpose systems
+by one or more orders of magnitude. Today, users can (in addition to
+traditional RDBMS) choose from column-stores designed for analytical
+queries, databases for time-series, graphs, or geographical data,
+search engines, and many more @TODO.
+
+We strongly believe that the next generation of query processors must
+take into account the needs of the emerging data-science community, as
+those will make up most of our users in the future. Motivating this
+further and investigating all of the broad implications this will have
+on database design is beyond the scope of this work, but we will point
+out two important, exemplary concerns.
+
+\textbf{Heterogeneous Sources}
+
+We can no longer assume that all inputs to a computation come from the
+same source (e.g. a traditional RDBMS). This is especially the case
+for systems like 3DF, which are not concerned with data storage at
+all. Inputs come from external systems, are stored in distributed
+filesystems, or are provided interactively by users. Inputs can have
+vastly different characteristics w.r.t volume, rate, and data type.
+
+The popularity of microservice-based architectures also imply, that
+modern query processors must integrate data from diverse sources in
+order to even arrive at a consistent, global view of any single domain
+entity.
+
+This new reality is elegantly captured by a column-oriented approach,
+where sourcing information, data schema, and other semantics can be
+configured separately for each individual attribute.
+
+\textbf{Categorical Data}
+
+An important computational characteristic of modern statistical
+learning is the prevalence of categorical features, typically
+represented via one-hot encodings. In a relational setting, one-hot
+encodings correspond to distinct unary relations for each distinct
+category a given record may fall into.
+
+In a traditional, row-oriented data model, modeling such data will
+lead to very wide, sparse tuples. Colum-oriented data models can
+represent such data much more efficiently and materialize only
+neccessary attributes, but incur frequent multi-way joins across
+relations of potentially highly varying selectivities.
+
+Motivated by these considerations and with further inspiration from
+the LogicBlox and Datomic systems[0, 1], we model all data in sixth
+normal form, meaning that every attribute is represented as a separate
+relation. This comes with a number of trade-offs, whose detailed
+investigation is not the focus of this work. In addition to the
+treatment in Aref et al.\footnote{[Aref et al., Design and Implementation of the LogicBlox System](../sources/logicblox.pdf)}, we find that this model is well suited to
+dealing with many heterogeneous sources and maps naturally to Datalog
+expressions.
+
+\subsubsection{Implementation}
+
+Although conceptually we are modelling a single space of facts as it
+evolves through logical time, we keep track of individual attributes
+in their own Differential collections. Attribute collections hold `(e,
+v)` pairs.
+
+\subsubsection{One Size Fits All?}
+
+We share the view of Aref et al.\footnotemark[1]{} towards specialized
+databases. Their use is warranted in scenarios where they can provide
+at least an order of magnitude in efficiency gains. Below that, the
+cost of developing, maintaining, and integrating a specialized system
+dominates. We suspect that this threshold is even higher for many
+industrial users with no in-house competence in designing
+data-processing systems.
+
+A similar approach has been taken by the Datomic database\footnote{[Datomic](www.datomic.com)} and the
+EVE project\footnote{[EVE](incidentalcomplexity.com)}. We witnessed the former's outsized, positive impact on
+developer productivity and system evolvability first-hand.
+
+We therefore think it worthwile to investigate whether novel
+approaches allows us to make general-purpose query engines that can
+offer competitive performance across a wider class of use cases.
+
+\subsection{Query Plan Language}
+
+3DF itself does not enforce a specific query language, but is intended
+to support relational query languages in general. We designed 3DF
+specifically with the needs of a reactive Datalog engine in
+mind. Datalog supports recursive rules and is thus well suited to
+expressing subpattern queries on graphs, large n-way joins, and many
+other common, relational computations in a concise way. The base
+language can be easily extended into various directions (e.g. temporal
+patterns, or probabilistic queries). Languages such as SQL and its
+various dialects (as used in modern data-processing systems) use the
+same primitives.
+
+Any relational language relies on a small set of computational
+primitives: selections, joins, projections, and set union. As
+mentioned above, Datalog draws its expressive power from recursive
+rules, which can be supported via iteration to fixed point. On top of
+those primitives, we want to support stratified logical negation
+("negation as set difference").
+
+Differential comes with a built-in two-way `join` operator. Selections
+correspond to Differential's `filter` operator. Set union is expressed
+as `concat`. Projections are implemented as a `map` extracting the
+requested offsets from a stream of tuples. Set difference is
+implemented via the `antijoin` operator.
+
+Timely and Differential support local iteration to fixed-point,
+meaning parts of the dataflow graph can be iterated independently from
+one another, and from the overall computation itself. Complex
+iteration patterns, such as mutual recursion, can be expressed by
+means of Differential's `Variable` abstraction. Variables represent
+collections that are not completely defined yet.
+
+While relational languages usually provide set semantics, we will be
+reflecting the multi-set semantics implemented by Differential
+collections. Wherever necessary, the `distinct` operator can be used
+to enforce set semantics on a collection.
+
+Within 3DF query plans are represented as trees of operator
+descriptions (\textbf{plan stages}). In addition to plan stages for the
+operators described above, we provide stages for various aggregations
+on tuples, as well as data transforms and basic arithmetic via
+built-in functions.
+
+The leaf nodes of a query plan are made up out of \textbf{data patterns},
+which encode the supported access paths for facts:
+
+\begin{itemize}
+\item \textbf{MatchA := [?e a ?v]} reads an entire attribute collection `a`.
+\item \textbf{MatchEA := [e a ?v]} reads all values associated with entity `e`
+for attribute `a`.
+\item \textbf{MatchAV := [?e a v]} reads all entity ids which have the value `v`
+associated with them for attribute `a`.
+\end{itemize}
+
+We do not support variables in attribute position. Neither do we
+support a pattern for checking the existence of an individual fact
+(e.g. `MatchFact := [e a v]`).
+
+\subsection{Input Sources}
+
+An important effect of attribute-oriented modeling is the ability to
+source attributes from different external systems, even though they
+might belong together from a domain modeling perspective.
+
+3DF allows for generalized source operators, which feed one or more
+attribute indices. Source operators connect to external systems or
+read from the filesystem and break external data models down into
+their individual attributes. They are also responsible for entity id
+and timestamp assignment.
+
+Decisions made by sources can have a significant impact on overall
+system performance. Sources may stall the entire system by failing to
+downgrade their capabilities, cause uneven load patterns by issuing
+too small or too large batches, or overload the progress tracking
+subsystem by assigning unnecessarily many distinct timestamps. While
+highly relevant, these considerations are beyond the core focus of
+this work.
+
+\end{document}
