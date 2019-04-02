@@ -7,7 +7,7 @@ distinct from single-query optimization inasmuch as we do not concern
 ourselves with achieving the optimal plan for any single query, but
 rather convergence to more optimal global execution as queries come
 and go. In particular we are more interested in limiting the number of
-"disastrous" plans picked, because those have an outsized negative
+``disastrous'' plans picked, because those have an outsized negative
 effect on \emph{all} users of the system.
 
 Our priorities in this work are therefore as follows:
@@ -37,8 +37,6 @@ Even though we're focusing on the multi-query case we must be careful
 not to make ourselves incompatible with potential orders-of-magnitude
 improvements to individual queries promised by novel evaluation
 techniques such as \cite{tekle2011more}.
-
-\subsection{Approach}
 
 We will start from the \emph{Declarative Dataflow} codebase, a
 reactive, distributed query engine built on \emph{Differential
