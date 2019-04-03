@@ -4,15 +4,39 @@
 
 \subsubsection{Problem}
 
-As has been widely documented within the database community [@TODO
-citations], many complex queries are highly sensitive to join
-ordering. [@TODO] We have dedicated a chapter to discuss the
-metrics-based approach to picking good join orders automatically and
-to the field of worst-case optimal n-way joins.
+As has been widely documented within the database community
+(\cite{leis2015good}, \cite{lohman2014query}), many complex queries
+are highly sensitive to join ordering. We have discussed the
+established heuristical approaches originating from
+\cite{selinger1979access} in \ref{known-techniques} and hinted at
+their various shortcomings.
 
-This scenario will focus on a case where the optimal join order is
-highly dependent on the individual tuple, such that no traditional
-join ordering approach can hope to find an order that is optimal for
-the entire computation.
+There we concluded that cardinality estimation under the traditional
+assumptions (uniformity, uncorrelated join predicates, overlapping key
+domains, and full access to meaningful statistics) can not avoid
+disastrous plans in all cases.
+
+While improvements in data modeling, on-line gathering of index
+statistics, and dynamic execution approaches such as Eddies provide
+many interesting avenues of inquiry, we are interested in approaches
+that make disastrous plans impossible.
+
+The reasons for this are two-fold: first, and most importantly,
+disastrous query plans violate all three of the desired properties
+outlined in \ref{problem}. Second, from experiences with 3DF itself,
+and other declarative systems such as the Prolog language, we know
+that the mere \emph{possibility} of unpredictable, severe performance
+degradations break the fundamental promise of the declarative
+abstraction, and force users to reason defensively about the system
+runtime.
+
+We also covered recent advances in the area of worst-case optimal join
+processing (originally due to \cite{ngo2012worst} and independently
+\cite{veldhuizen2012leapfrog}, more recently
+\cite{ammar2018distributed} and \cite{ciucanu2015worst}) that
+introduce n-way join algorithms with improved asymptotic complexity in
+some cases.
+
+\subsubsection{Remedy}
 
 \end{document}
