@@ -239,6 +239,21 @@ underlying joins, such as `Transform` and `Aggregate`.
 Here we are meeting again a trade-off identified in the very first
 scenario we analysed, \texttt{Case 0}.
 
+\subsubsection{Evaluation}
+
+\begin{figure}[h!]
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[width=1.0\linewidth]{results/multitenant_w1_p1/times}
+    \caption{Single Worker}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[width=1.0\linewidth]{results/multitenant_w1_p3/times}
+    \caption{Three Distributed Workers}
+  \end{subfigure}
+
+  \caption{Per-Epoch Latencies}
+\end{figure}
+
 \subsubsection{Future Work}
 
 We think that expressing multi-tenancy within the data plane is a very

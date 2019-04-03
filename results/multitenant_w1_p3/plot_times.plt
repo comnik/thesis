@@ -1,11 +1,11 @@
 set datafile separator ","
-set term postscript eps enhanced color linewidth 2 font "Helvetica,14"
-set output "times.eps"
+set term pdf enhanced color linewidth 2 font "Helvetica,14"
+set output "times.pdf"
 
-set style line 1 lc rgb "#0060ad" lt 1 lw 2 pt 7 ps 1
-set style line 2 lc rgb "#00796B" lt 1 lw 2 pt 7 ps 1
-set style line 3 lc rgb "#8BC34A" lt 1 lw 2 pt 7 ps 1
-set style line 4 lc rgb "#F4511E" lt 1 lw 2 pt 7 ps 1
+set style line 1 lc rgb "#0060ad" lt 1 lw 1 pt 7 ps 1
+set style line 2 lc rgb "#00796B" lt 1 lw 1 pt 7 ps 1
+set style line 3 lc rgb "#8BC34A" lt 1 lw 1 pt 7 ps 1
+set style line 4 lc rgb "#F4511E" lt 1 lw 1 pt 7 ps 1
 
 set title "Per-Epoch Latencies"
 set xlabel "Epoch"
