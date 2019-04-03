@@ -13,6 +13,13 @@ so, we have overcorrected a bit, at the expense of redundancies in the
 overall dataflow. Apart from the attribute indices, we have foregone
 almost all opportunities for sharing state between dataflows.
 
+Query dataflows consume a number of ressources over their entire
+lifetime, which might be measured in minutes or hours for interactive
+sessions, but in days, weeks, months, or even years for dataflows
+between backend services.
+
+[@TODO overheads of dataflow elements]
+
 Naturally, this limits the number of clients we can support
 concurrently.
 
@@ -247,5 +254,17 @@ In such cases we could make use of the fact, that sets of client
 tokens form a commutative monoid under set union. Any such monoid can
 take the place of Differential's multiplicities (and benefit from
 efficient in-place updates).
+
+@TODO
+If we want to re-use delta query pipelines we might have to generalize
+~AltNeu~ to be an integer, specifying the position in the
+chain. Otherwise the likelihood of compatible re-use across pipelines
+is negligible.
+
+@TODO iterated hector
+There is a remaining redundancy in Hector, in that whenever multiple
+Attribute bindings refer to the same attribute, we would be
+constructing more than one delta pipeline. In a way, a single change
+to the supporting attribute leads to multiple changes in the bindings.
 
 \end{document}
