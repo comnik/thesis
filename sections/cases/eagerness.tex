@@ -4,51 +4,77 @@
 
 \subsubsection{Problem}
 
-Working with a declarative query language such as 3DF, users are
-encouraged to think of their domain in terms of attributes, entities,
-and the relations that govern their interaction. 3DF, borrowing from
-Datalog, provides the \textbf{rule} — fundamentally a named disjunction of
-conjunctions — as its core abstraction. Rules may refer to each other
-or recursively to themselves.
+When working with a declarative query language such as the one
+provided by 3DF, users are encouraged to think of their domain in
+terms of attributes, entities, and the relations that govern their
+interaction. 3DF, borrowing from Datalog, provides the \emph{rule} —
+fundamentally a named disjunction of conjunctions — as its core
+abstraction. Rules may refer to each other or recursively to
+themselves. Domain logic, constraints, and higher-level relationships
+are all expressed as rules.
 
-Domain logic, constraints, and higher-level relationships are all
-expressed as rules.
-
-It is often the case, that a developer identifies a new rule that is
-completely sensible as an abstraction in their domain, but when
-evaluated on its own, materializes enormous amounts of tuples. 
+It is often the case, that users identify new rules that are sensible
+abstractions within their domain, but when evaluated on their own,
+materialize enormous amounts of tuples. Before this work, users of 3DF
+would often run into this problem when modeling a problem
+rule-by-rule, because 3DF would implement new rules immediately upon
+registration. Additionally, in order to allow users to work off of
+previously defined rules, 3DF would maintain rule results in a
+Differential arrangement.
 
 This is a prime example of violating the robustness property
-identified in \texttt{Problem Description}: The user is merely following
-the declarative interaction model we are actively encouraging, and
-gets punished for doing so!
+identified in \ref{problem}: Users are merely following the
+declarative interaction model (which we are actively encouraging), and
+get punished for doing so!
 
 \subsubsection{Example}
 
 An example of this problematic scenario in the context of the social
 graph domain is any transitive relation between persons, such as
-`:person/knows` or `:person/friends-with`. A common rule for
-recursively capturing such transitive closures might be:
+\texttt{:person/knows} or \texttt{:person/friends-with}. A common rule
+for recursively capturing such transitive closures might be:
 
 \begin{verbatim}
 [(knows ?a ?b) [?a :person/knows ?b]]
 [(knows ?a b) [?a :person/knows ?x] (knows ?x ?b)]
 \end{verbatim}
 
-From the developers perspective, this rule is tremendously useful,
-because it abstracts away a complex (in the distributed setting),
-iterative graph exploration problem for an arbitrary number of hops.
+From the users perspective, this rule is tremendously useful, because
+it abstracts away a complex (in the distributed setting), iterative
+graph exploration problem for an arbitrary number of hops.
 
 For 3DF on the other hand, immediately materializing this rule into a
 Differential arrangement has disastrous consequences, as it will
 materialize and index(!) the full transitive closure of the social
 graph.
 
+Another common instance of this problem arises when modeling access
+control policies. The power of the query language allows for
+straightforward expression of rich, property-based policies, or
+simple, permission-based ones such as:
+
+\begin{verbatim}
+[(access? ?user ?entity) [?user :permission/read ?entity]]
+\end{verbatim}
+
+Eagerly deriving the \texttt{access?} relation would materialize all
+read permissions for all users. Even more problematic, consider a rule
+such as:
+
+\begin{verbatim}
+[(access? ?user ?entity) [?user :user/role "Admin"]]
+\end{verbatim}
+
+This rule makes sense from a domain-modeling point of view, but is not
+even a valid rule in 3DF, because it doesn't bind the \texttt{?entity}
+variable. Such a rule can only ever be used in combination with
+additional ones.
+
 \subsubsection{Remedy}
 
-Luckily, generic rules rarely used in isolation, i.e. without any more
-specific constraints applied (in the same sense that a function is
-rarely evaluated for all possible parameters, but rather for a much
+Luckily, generic rules are rarely used in isolation, i.e. without any
+more specific constraints applied (in the same sense that a function
+is rarely evaluated for all possible parameters, but rather for a much
 smaller set of specific ones).
 
 As to the example of \texttt{:person/knows}, an application might at
@@ -76,37 +102,43 @@ query:
 
 Now the resulting computation is much less problematic, because we
 need only explore the transitive closure between persons named either
-Alice or Bob. Deferring synthesis of `knows` has saved us a lot of
-trouble in this case.
+Alice or Bob. Deferring synthesis of \texttt{knows} has saved us a lot
+of trouble in this case.
 
-As will be dicussed below, there is a much deeper trade-off lurking
-beneath this seemingly simple problem of eager vs lazy synthesis of
-queries. For now, we hypothesize that eager materialization is
-problematic in close to all cases, because we lose the ability to even
-reason about what the best evaluation strategy is.
+Additionally, by deferring evaluation, we have a complete picture of
+user interest. This means that we don't have to maintain an arranged
+version of the \texttt{knows} relation, but can immediately forward
+tuples downstream.
 
-[@TODO first user interested in a query has to wait longer, is that a
-problem?]
+\subsubsection{Evaluation}
 
-\subsubsection{Big Picture}
+A few significant changes were neccessary to change 3DF's synthesis
+approach from eager to lazy. These are detailed in
+\ref{lazy-synthesis}.
 
-We've seen how semantically meaningful rules are often terribly
-underconstrained.
+\subsubsection{Conclusions}
 
-The problem of eager materialization, explored in this scenario, hints
-at a much more general trade-off: Abstractions such as the `knows`
-rule increase our potential for re-use of computations across many
-clients, but might dramatically increase the magnitude of the result
-set.
+As will be the topic of subsequent chapters, much deeper trade-offs
+await when deciding what queries to evaluate as a unit and what parts
+to maintain for re-use. For now, we merely point out that eager
+materialization is problematic in that we lose the ability to even
+reason about what the best evaluation strategy is. And we've seen that
+semantically meaningful rules are often terribly underconstrained or
+not derivable on their own.
 
-As is established practice in query planning, pushing more selective
-downstream operations back up into these generic rules can greatly
-improve performance, at the cost of increased \textbf{specialization} of the
-dataflow (and thus reduced potential for sharing it between
-clients). This problem is compounded by the fact that a single bad
-decision, when implementing a dataflow that many other flows depend
-on, means we are stuck with the potentially horrific plan until all
-downstream computations are shut down.
+Abstractions such as the \texttt{knows} rule increase the potential
+for re-use of computations across many clients, but might dramatically
+increase the magnitude of the result set.
+
+On the other hand, as is established practice in query planning,
+pushing more selective downstream operations back up into these
+generic rules can greatly improve performance, at the cost of
+increased \emph{specialization} of the dataflow — and thus reduce
+potential opportunities for sharing it between clients. This problem
+is compounded by the fact that a single bad decision, when
+implementing a dataflow that many other flows depend on, means we are
+stuck with the potentially horrific plan until all downstream
+computations are shut down.
 
 We will explore this trade-off in much greater detail in the following
 scenarios.
