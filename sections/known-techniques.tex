@@ -16,6 +16,27 @@ Forgy (\cite{forgy1989rete}) is the archetypical pattern-matching
 algorithm powering rule engines. PHREAK \cite{drools} is a
 collection-oriented alternative to the tuple-by-tuple RETE.
 
+At its core, RETE is an algorithm to compile rule definitions into a
+corresponding \emph{discrimination network}. This approach is very
+much reminiscent of a dataflow computation.
+
+Most of the operators (called \emph{nodes}) that Forgy describes are
+simple filters for an input's data type and similar discriminating
+attributes. These are easily replicated by Differential's
+\texttt{filter} operator. A clause such as \texttt{[?x :class/attr
+    ?a]} will furthermore act as an inherent object-type filter.
+Forgy also describes \texttt{join} nodes, which are easily emulated by
+Differential's own \texttt{join} operator.
+
+Critically, RETE networks assume that leaf nodes are traditional,
+ad-hoc queries run against a conventional database. In Differential,
+the entire computation is incrementalized.
+
+While the literature on rule engines does provide interesting
+approaches to incrementalizing traditional query engines, they lack
+the relational abstractions, strong consistency guarantees, and the
+ability to distribute recursive queries.
+
 \subsection{Traditional Query Optimization}
 
 The field of query optimization is vast. For the purposes of this work
@@ -64,6 +85,16 @@ strategies (bottom-up vs top-down) and improve the extensibility of
 the planning architecture. The basic approach of heuristics-based cost
 estimation combined with plan enumeration stays the same.
 
+\begin{quote}
+The root of all evil, the Achilles Heel of query optimization, is the
+estimation of the size of intermediate results, known as
+cardinalities. Everything in cost estimation depends upon how many
+rows will be processed, so the entire cost model is predicated upon
+the cardinality model.
+
+\cite{lohman2014query}
+\end{quote}
+
 It is well established[3,4], that cardinality estimation is both the
 most important part of traditional query optimization, as well as the
 hardest to get right. \cite{leis2015good} show that estimation errors
@@ -83,42 +114,83 @@ setting, accurate cardinality estimation of the result of joining two
 relations (also known as the join's \emph{selectivity}) is crucial, in
 order to pick a plan that materializes as few tuples as possible.
 
-As Lohman notes in \cite{lohman2014query}, many modern systems still
-compute their estimates following assumptions originally proposed for
-System R:
+Many modern database systems still compute their estimates under the
+same assumptions originally proposed for System R. In the following,
+we want to review a few of those assumptions.
 
-\textbf{Uniformity} @TODO
+\subsubsection{Uniformity}
 
-\textbf{Principle of inclusion} Join-key domains are assumed to
-overlap. This is a valid assumption for joins on base relations with
-referential integrity constraints.
+Consider a simple constant binding on a column \texttt{[?x
+    :comment/browser Firefox]}, asking for user comments created using
+the Firefox browser. Following \cite{selinger1979access}, the
+selectivity of such a clause would be computed as
 
-For the kinds of queries 3DF is interested in, this assumption breaks
-down. Consider for example the query `[?u1 :name ?n] [?u2 :name ?n]`
-describing all pairs of users sharing a name. Surely we can not
-enforce referential integrity on usernames. Similarly a query such as
-`[?u1 :name ?n] [?u1 :salary ?s] [(> ?s 1000)]` can easily violate
-this assumption, if we filter the `:salary` relation before joining.
+\begin{equation}
+  \dfrac{1}{dom(\text{:comment/browser})} = \dfrac{1}{5}
+\end{equation}
 
-\textbf{Independent predicates} Multiple conjunctive predicates on the
-same relation are assumed to be independent, allowing for their
-combined selectivity to be computed as the product of their individual
-selectivities.
+assuming five distinct browsers appear within our dataset. Crucially,
+this formula assumes a uniform distribution of browsers, whereas we
+would expect a distribution matching actual browser usage in our
+target markets.
 
-This assumption is especially dangerous, because it can lead to
-situations in which additional predicates (provided by the user) lead
-to a significantly worse-performing plan being picked. Such an
-experience is irreconcilable with our maxime of predictable, robust
-performance and our desire to provide a declarative interaction model.
+Given some additional index statistics, such as a histogram of the
+actual frequencies, an optimizer might reasonibbly be expected to
+determine a more accurate estimate.
 
-\textbf{Global information} Traditional optimizers assume that they
-have access to up-to-date, accurate statistics on all query inputs
-(for some definition of up-to-date and accurate).
+However, as noted in \cite{lohman2014query}, queries in the real world
+are often not written by humans directly but by other software
+sytems. Such systems will often allow additional parameterization of
+the query via a user interface. In the particular case of 3DF we will
+often see the following transform, introducing an additional parameter
+input:
 
-This is less and less true in today's architectures. 3DF derives a big
-part of its value from the ability to provide a unified query
-interface over heterogenous data sources. Inputs often come from files
-or arrive over the network from external systems.
+\begin{verbatim}
+[:find ?x :where [?x :comment/browser "Firefox"]]
+=>
+[:find ?x 
+ :where [?x :comment/browser ?c] [_ :parameter ?c]]
+\end{verbatim}
+
+Within the continuous query processing setting, this allows users to
+flip through different query parameters without having to create new
+dataflows (and thus benefitting from the incremental re-computation of
+results).
+
+Unfortunately such an abstraction means, that we can not look up the
+accurate selectivity during query registration, because the actual
+parameter value is not known. Phrased differently, in our setting, the
+problem of estimating selectivity of constant predicates is often
+indistinguishable from estimating the selectivity of a join.
+
+This issue also touches on a larger one, which is that traditional
+optimizers assume that they have access to up-to-date, accurate
+statistics on all relevant query inputs. This is less and less true in
+today's architectures. 3DF's data model is built with heterogeneous,
+external data sources in mind, for which suitable statistics might not
+be available.
+
+\subsubsection{Principle of Inclusion}
+
+\cite{selinger1979access} give the selectivity of a relational
+equi-join on two columns $c_1$ and $c_2$ as
+$\dfrac{1}{max(dom(c_1),dom(c_2))}$. This assumes that the domains of
+the two columns overlap. On otherwise unselected columns with
+appropriate referential constraints between them, this assumption is
+valid.
+
+As soon as we apply other selection predicates before joining, this
+assumption will not hold in general. For a single, binary join,
+violating this assumption is usually not disastrous, because we 
+
+This becomes problematic in
+combination with the next assumption.
+
+\subsubsection{Independent Predicates}
+
+Multiple conjunctive predicates on the same relation are assumed to be
+independent, allowing for their combined selectivity to be computed as
+the product of their individual selectivities.
 
 \subsection{Adaptive Query Processing}
 
@@ -141,6 +213,8 @@ Such an architecture has additional benefits for long-running queries,
 as we might not want to spend a lot of time on fine-grained planning
 at registration time, but rather amortize the planning cost and adapt
 as we gather more statistics about runtime behaviour.
+
+\subsection{Worst-Case Optimal Join Processing}
 
 \subsection{Stream Optimization}
 
@@ -226,16 +300,19 @@ plans not only affect individual query performance, but negatively
 impact all users of the system.
 
 At a first glance, translating the System R approach to 3DF seems
-straightforward. Materialized sub-computations (\textbf{arrangements})
+straightforward. Materialized sub-computations (\emph{arrangements})
 provide additional access-paths to tuples, for which a reasonable cost
-model could be established. 
+model could be established. Systems such as \cite{condie2008evita}
+provide interesting precedence of applying Datalog to the internals of
+a query engine itself.
 
 Arguably, the suitability of Differential to on-line analytical
 computations would ease some of the challenges of maintaining
 up-to-date metrics on relations, without incurring a significant
-oeprational overhead. Yet, we do not see a promising avenue to tackle
-the fundamental fragility of cardinality estimation on complex queries
-invoving many joins using these heuristics-based techniques.
+operational overhead. Yet, we do not see a promising avenue to tackle
+the fragility of cardinality estimation (as discussed in the previous
+sections) on complex queries invoving many joins using fundamentally
+heuristics-based techniques.
 
 Even worse, subgraph queries will often not have \texttt{@TODO}
 
@@ -243,13 +320,5 @@ The novel execution model of differential dataflows and the highly
 dynamic environments 3DF is designed for do not bear much resemblance
 to the operational realities 40 years ago. Traditional planners are
 not built with incremental, streaming evaluation in mind.
-
-\texttt{@TODO show how the planner assumptions aren't valid anymore}
-
-In a streaming context, a query, once registered, will continue taking
-up memory for all of its materialized arrangements and CPU time for
-all of its dataflow elements. This implies that we will eventually
-have to share arrangements and dataflow elements between users to
-achieve the desired scale.
 
 \end{document}
