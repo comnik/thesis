@@ -80,10 +80,14 @@ permutations under consideration.
 
 Many variants and improvements on this architecture have been proposed
 over the years, most notably so in a long line of research by Graefe
-et al.[1,2]. These architectures vary in their plan enumeration
-strategies (bottom-up vs top-down) and improve the extensibility of
-the planning architecture. The basic approach of heuristics-based cost
-estimation combined with plan enumeration stays the same.
+et al. (\cite{graefe1987exodus}, \cite{graefe1993volcano}, and
+\cite{graefe1995cascades}). These architectures vary in their plan
+enumeration strategies (bottom-up vs top-down) and improve the
+extensibility of the planning architecture. The basic approach of
+heuristics-based cost estimation combined with plan enumeration stays
+the same.
+
+\subsection{Cardinality Estimation}
 
 \begin{quote}
 The root of all evil, the Achilles Heel of query optimization, is the
@@ -95,8 +99,8 @@ the cardinality model.
 \cite{lohman2014query}
 \end{quote}
 
-It is well established[3,4], that cardinality estimation is both the
-most important part of traditional query optimization, as well as the
+It is well established, that cardinality estimation is both the most
+important part of traditional query optimization, as well as the
 hardest to get right. \cite{leis2015good} show that estimation errors
 grow exponentially with the number of joins for a representative
 selection of modern relational DBMS. They also show that correct
@@ -356,14 +360,5 @@ meaningful statistics on external sources (e.g. parameter
 collections), and (c) any overly optimistic estimation will
 immediately cause errors proportional in the size of the relation. And
 of course, the order might be highly data dependent.
-
-@TODO Sources
-
-[0] [Selinger et al., Access Path Selection in a RDMS](../sources/access-path-selection.pdf)
-[1] [Graefe, McKenna, The Volcano Optimizer Generator](../sources/volcano.pdf)
-[2] [Graefe, The Cascades Framework For Query Optimization](../sources/the-cascades-framework-for-query-optimization.pdf)
-[3] [Leis et al., How Good Are Query Optimizers, Really?](../sources/how-good-are-optimizers-really.pdf)
-[4] [Lohman, Is Query Optimization A Solved Problem?](../sources/is-query-optimization-a-solved-problem.pdf)
-[5] [Hellerstein, Query Optimization (Red Book, 5th ed.)](http://www.redbook.io/ch7-queryoptimization.html)
 
 \end{document}
