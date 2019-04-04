@@ -348,17 +348,24 @@ heuristics-based techniques.
 
 Even worse, subgraph queries will often not have \texttt{@TODO}
 
-The novel execution model of differential dataflows and the highly
-dynamic environments 3DF is designed for do not bear much resemblance
-to the operational realities 40 years ago. Traditional planners are
-not built with incremental, streaming evaluation in mind.
+The execution model of differential dataflows and the highly dynamic
+environments 3DF is designed for do not bear much resemblance to the
+operational realities 40 years ago. Traditional planners are not built
+with incremental, streaming evaluation in mind. In our setting, we
+must implement computations \emph{before} any data (and thus any
+heuristics) are available. This invalidates the assumption of
+global-knowledge that traditional query planners operate under.
 
-@TODO cardinality estimation can not avoid disastrous plans, because
-(a) we need correlated relations in practice, in order to model
-functional dependencies as discrete mappings, (b) we don't have
-meaningful statistics on external sources (e.g. parameter
-collections), and (c) any overly optimistic estimation will
-immediately cause errors proportional in the size of the relation. And
-of course, the order might be highly data dependent.
+Further, in real-world usage we can hardly avoid correlated columns,
+because they are the only practical tool to model discrete, functional
+dependencies. This largely invalidates the independence assumption of
+join predicates.
+
+Finally, any slightly over-optimistic estimation will immediately
+cause errors proportional in the size of the relation, because
+[@TODO].
+
+In summary, we must conclude that cardinality estimation can not avoid
+disastrous plans in real-world usage.
 
 \end{document}
