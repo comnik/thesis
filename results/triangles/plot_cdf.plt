@@ -6,15 +6,14 @@ set style line 2 lc rgb "#00796B" lt 1 lw 1 pt 2 ps 1
 set style line 3 lc rgb "#8BC34A" lt 1 lw 1 pt 2 ps 1
 set style line 4 lc rgb "#F4511E" lt 1 lw 1 pt 2 ps 1
 
-set title "Latencies"
 set xlabel "Completion Time (ms)"
 set ylabel "Percentile"
 set logscale x 10
 
-set output "cdf.pdf"
+set output "out/cdf.pdf"
 
-stats "joinjoinjoin_parsed.dat" using 3;
-stats "dogsdogsdogs_parsed.dat" using 3;
+stats "nobatch/join_ab_bc_ac.dat" using 3;
+stats "nobatch/dogs_ab_bc_ac.dat" using 3;
 
-plot "joinjoinjoin_parsed.dat" using 1:(1-$3/STATS_max) ls 1 with lines title "JoinJoinJoin",\
-     "dogsdogsdogs_parsed.dat" using 1:(1-$3/STATS_max) ls 2 with lines title "DogsDogsDogs", 
+plot "nobatch/join_ab_bc_ac.dat" using 1:(1-$3/STATS_max) ls 1 with lines title "JoinJoinJoin",\
+     "nobatch/dogs_ab_bc_ac.dat" using 1:(1-$3/STATS_max) ls 2 with lines title "DogsDogsDogs", 
