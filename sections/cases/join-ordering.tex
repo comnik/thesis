@@ -76,6 +76,22 @@ performing JoinJoinJoin order can outperform Hector, but with a
 similar long-tail and twice the maximum latency. [@TODO percentile
   table]
 
+Figure \ref{fig:triangle-cdfs-extended} shows that these observations
+remain valid when measuring thrice the number of rounds, as well as
+when increasing the batch size to introduce one thousand nodes at a
+time.
 
+\begin{figure}[h!]
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[width=1.0\linewidth]{results/triangles/out/extended_cdf}
+    \caption{More Rounds}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \includegraphics[width=1.0\linewidth]{results/triangles/out/batch_cdf}
+    \caption{Batch Size 1000}
+  \end{subfigure}
+
+  \label{fig:triangle-cdfs-extended}
+\end{figure}
 
 \end{document}
