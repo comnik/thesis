@@ -39,4 +39,43 @@ some cases.
 
 \subsubsection{Remedy}
 
+\subsubsection{Evaluation}
+
+First, we want to examine whether a worst-case optimal join strategy
+does lead to more predictable latencies, \emph{irrespective of the
+  clause order provided by the user}. For this we will consider the
+triangle query \texttt{[?a :edge ?b] [?b :edge ?c] [?a :edge ?c]} on
+the livejournal graph. The graph contains 68 million edges. We
+introduce edges in node order, feeding them into a single
+attribute. The i-th round of input is therefore that in which all
+edges starting at node i are ingested. We use a single worker, running
+on a single core of a 2.7 GHz Intel Core i5, with 16GB RAM available.
+
+We run this setup for both strategies — consecutive binary joins
+(\emph{JoinJoinJoin}) and worst-case optimal (\emph{Hector} — and for
+three different input clause orders each, measuring completion time
+for each round of inputs. The resulting latency distributions are
+shown in figure \ref{fig:triangle-cdfs}.
+
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{results/triangles/out/all_cdfs}
+  \caption{Triangle Query - Latency CCDFs}
+  \label{fig:triangle-cdfs}
+\end{figure}
+
+As expected, we observe that performance of the JoinJoinJoin strategy
+is highly sensitive to clause order. In particular, the first ordering
+(\texttt{([a b] [a c]) [b c]}), runs out of memory at node 87, while
+the third ordering (\texttt{([a c] [b c]) [a b]}) consistently
+outperforms all of the tested strategies.
+
+The worst-case optimal strategy performs consistently well for all
+three input clause orderings and consistently outperforms the two
+disastrous join orderings by one to many orders of magnitude. The best
+performing JoinJoinJoin order can outperform Hector, but with a
+similar long-tail and twice the maximum latency. [@TODO percentile
+  table]
+
+
+
 \end{document}
