@@ -393,4 +393,75 @@ work, but treated extensively in \cite{abo2016faq}.
 
 \subsection{Multi-tenant Routing}
 
+In chapter \ref{case-redundant-dataflows} we saw that multi-tenant
+dataflows, where applicable, allow us to serve many clients without
+creating additional dataflow elements. Our current implementation is
+not fully automated, in that it requires co-operation from the
+clients.
+
+Multi-tenancy is achieved by tagging inputs with a token, uniquely
+identifying the tenant it originated from. This way, the corresponding
+results can be routed appropriately, such that any given tenant only
+sees the results that are of interest to them. Our current
+implementation re-uses the connection tokens assigned by the WebSocket
+server. Client tokens are unsigned 64-bit integers.
+
+Inputs are associated via parameter relations, where each tenant $t_i$
+inputs their parameters $p_1, ..., p_n$ as pairs
+$(t_i,p_1),...,(t_i,p_n)$. Assuming then a query such as the
+following:
+
+\begin{verbatim}
+[:find ?tenant ?device ?speed
+ :where
+ [?device :device/speed ?speed]
+ [?tenant :param/device ?device]]
+\end{verbatim}
+
+Tenants register their interest, indicating the offset at which tenant
+tokens are to be found within the output tuples.
+
+\begin{lstlisting}[language=json][h!]
+{:Interest {:query q :tenant 0}}
+\end{lstlisting}
+
+Timely Dataflow makes use of \emph{exchange pacts} to define how data
+is routed between operators. For single-tenant dataflows, all workers
+therefore must be aware of which of them maintains the client
+connection. For a given request, we call this worker the
+\emph{owner}. Dataflow results are then exchanged using the following
+pact, which simply routes all data to the owning worker:
+
+\begin{lstlisting}[language=Rust, style=colouredRust][h!]
+Exchange::new(move |_| owner as u64)
+\end{lstlisting}
+
+Each worker additionally maintains a mapping of query names to the
+client tokens, which have expressed interest in receiving results from
+that query. As long as all relevant results are exchanged correctly to
+the owning worker, all interested clients will therefore receive
+copies.
+
+Knowledge about the owner is broadcasted during \emph{sequencing}, a
+synchronizing dataflow into which all workers input all requests
+received from clients. Sequencing ensures, that all workers process
+the sequence of commands in the exact same order. Workers tag requests
+that they have received from a client with their own worker id, before
+broadcasting them via the sequencing dataflow.
+
+Exchange logic becomes somewhat more involved in the multi-tenant
+setting, because the routing decisions are now data dependent. Workers
+must also maintain a mapping of tenants to their owning workers. New
+entries into this mapping are created on \texttt{Interest} requests,
+and removed upon \texttt{Disconnect} requests. Owning workers must
+take care to broadcast appropriate \texttt{Disconnect} requests,
+whenever any of their clients disconnects.
+
+\begin{lstlisting}[language=Rust, style=colouredRust][h!]
+Exchange::new(move |(tuple, t, diff)| {
+    let tenant = tuple[tenant_offset];
+    tenant_owner.borrow().get(&Token(tenant as usize))
+})
+\end{lstlisting}
+
 \end{document}

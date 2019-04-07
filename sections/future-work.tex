@@ -1,0 +1,34 @@
+\documentclass[../index.tex]{subfiles}
+
+\begin{document}
+
+- @TODO hybrid planners
+- @TODO eddies like constructs
+- @TODO monoid aggregations
+- @TODO automated policies for deciding re-use, etc..
+
+A hybrid cost-based approach in \cite{mhedhbi2019optimizing} shows
+promising results.
+
+\subsection{Datalog Evaluation Strategies}
+
+At its heart (and mostly thanks to Differential's incremental
+computation model), 3DF uses a semi-naive, bottom-up evaluation
+strategy. Over the past decades, many more sophisticated Datalog
+evaluation strategies have been developed
+(e.g. \cite{tekle2011more}). More work is needed to understand how
+strategies such as the magic-set transform or subsumptive tabling
+translate into the incremental dataflow model, and to what extent they
+overlap with worst-case optimal join evaluation.
+
+\subsection{Static Optimizations}
+
+The finer-grained language of bindings described in chapter
+\ref{implementation}, and in particular the use of the
+\texttt{constant} binding surfaced interesting opportunities for
+static optimizations. For example, by moving conjunctive clauses into
+disjunctions (using DeMorgan's law), we at times identified entire
+branches that couldn't possibly produce results, due to conflicting
+constant bindings.
+
+\end{document}
