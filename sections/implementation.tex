@@ -5,23 +5,51 @@
 \subsection{Indexing}
 
 In order to make use of the worst-case optimal dataflow-join framework
-described in \texttt{@TODO} we could no longer maintain attributes as just
-an arranged collection of `(e, v)` pairs. The implementation of the
-`PrefixExtender` trait for attributes requires two additional traces,
-one to keep track of the number of extensions the attribute would
-propose for a given prefix and a trace indexed in a way suitable to
-efficiently validate proposals made by other extenders.
+described in section \ref{case-join-ordering} we could no longer
+maintain attributes as just an arranged collection of \texttt{(e v)}
+pairs. The implementation of the \texttt{PrefixExtender} trait
+(described later in section \ref{impl-hector}) for attributes requires
+two additional traces, one to keep track of the number of extensions
+the attribute would propose for a given prefix and a trace indexed in
+a way suitable to efficiently validate proposals made by other
+extenders.
 
 Additionally, attributes might be placed at a stage in the delta query
 pipeline, at which prefixes already bind the value symbol. In that
 case, reversed versions of all three of the above arrangements must be
 at hand.
 
-We therefore introduced a `CollectionIndex` structure which holds all
-three arrangements for a given direction and a given attribute. 3DF
-workers maintain separate mappings from attribute names to their
-forward and reverse collection indices. This simplifies the types and
-ownership involved.
+We therefore introduced a \texttt{CollectionIndex} structure which
+holds all three arrangements for a given direction and a given
+attribute. 3DF workers maintain separate mappings from attribute names
+to their forward and reverse collection indices. This simplifies the
+types and ownership involved. Collection indices implement a subset of
+Differential's arrangement API: an \texttt{import} method for
+importing all internal traces into a top-level scope, as well as an
+\texttt{enter\_at} method to bring all imported internal arrangements
+into a nested scope with an additional timestamp co-ordinate.
+
+\begin{lstlisting}[language=Rust, style=colouredRust][h!]
+struct CollectionIndex<K, V, T> {
+    count_trace: TraceKeyHandle<K, T, isize>,
+    propose_trace: TraceValHandle<K, V, T, isize>,
+    validate_trace: TraceKeyHandle<(K, V), T, isize>,
+}
+\end{lstlisting}
+
+These finer-grained index types map onto different use cases
+throughout 3DF, and allows us to avoid creating new arrangements
+during synthesis. For example, reading out an entire attribute is best
+served by the \texttt{validate\_trace}, whereas when joining two
+attributes using 3DFs existing \texttt{Join} stage, we can now re-use
+the appropriate traces:
+
+\begin{verbatim}
+(join [?a ?b] [?a ?c]) => (forward propose, forward propose)
+(join [?a ?b] [?c ?a]) => (forward propose, reverse propose)
+(join [?a ?b] [?a ?b ?c]) => (forward validate, new arrangement)
+...
+\end{verbatim}
 
 Although not client-configurable at the time of this writing, it makes
 sense to skip the reverse indices for certain attributes. An example
@@ -209,7 +237,7 @@ representation in the language of bindings.
  constant(?name, "Bob")]
 \end{verbatim}
 
-\subsection{A Worst-Case Optimal N-Way Join Operator}
+\subsection{A Worst-Case Optimal N-Way Join Operator} \label{impl-hector}
 
 In order to be able to express the worst-case optimal join strategy
 explored throughout this work, a new query plan stage and
