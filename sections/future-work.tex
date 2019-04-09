@@ -3,9 +3,9 @@
 \begin{document}
 
 - @TODO hybrid planners
-- @TODO eddies like constructs
 - @TODO monoid aggregations
 - @TODO automated policies for deciding re-use, etc..
+- @TODO CardinalityOne vs CardinalityMany
 
 A hybrid cost-based approach in \cite{mhedhbi2019optimizing} shows
 promising results.
@@ -20,6 +20,126 @@ evaluation strategies have been developed
 strategies such as the magic-set transform or subsumptive tabling
 translate into the incremental dataflow model, and to what extent they
 overlap with worst-case optimal join evaluation.
+
+\subsection{Set vs Multiset Semantics}
+
+Over the course of this work we have changed 3DF to expose
+Differential's multiset semantics, rather than impose set semantics on
+top. The reasons for this are motivated equally by performance
+cosiderations as well as user experience concerns. Here we must for
+once disagree with \cite{aref2015design}, who state that:
+
+\begin{quote}
+  In our experience, [multiset semantics] also makes queries harder
+  for the end users to write and to reason about.
+\end{quote}
+
+Queries involving grouped aggregations commonly lead to redundant
+tuples within each group. Consider for example a simple query summing
+the total salary cost per company 
+
+\begin{verbatim}
+[:find ?company (sum ?salary)
+ :where
+ [?company :company/employee ?employee]
+ [?employee :employee/salary ?salary]]
+\end{verbatim}
+
+The implicit grouping and projection expressed by the \texttt{:find}
+clause can cause a lot of redundant values, as many employees will
+have the same salary. Under set semantics, the resulting sums will not
+match user expectations. Epxressed purely in Differential Dataflow,
+the results would be ``correct''.
+
+Before this work, 3DF had adopted the \texttt{:with} construct from
+the Datomic query language. Re-writing the same query as
+
+\begin{verbatim}
+[:find ?company (sum ?salary)
+ :with ?employee
+ :where
+ [?company :company/employee ?employee]
+ [?employee :employee/salary ?salary]]
+\end{verbatim}
+
+would ensure that two employee salaries equal in value would still be
+considered as distinct tuples. Both, imposing set semantics on top of
+Differential (via the \texttt{distinct} operator), as well as
+implementing the \texttt{:with} construct meant introducing additional
+operators into the dataflow. The \texttt{distinct} operator in
+particular is stateful and must keep all of its inputs in arranged
+form.
+
+Using multiset semantics also allows us to aggregate multiplicites
+directly. Differential can operate on multiplicites efficiently and
+in-place, whereas operations on data itself must remain immutable (and
+thus allocate new tuples). In the above example, 3DF will treat
+employee salaries as multiplicites of company eids ($((company,
+employee, 12345), t, 1)$ becomes $((company), t, 12345)$). Using
+Differential's built-in \texttt{count} operator, these multiplicites
+will be consolidated and accumulated in-place, according to any
+binary, associative operation under which the multiplicites form a
+monoid. Exploiting algebraic structure within the multiplicities to
+express more interesting aggregations is a topic of ongoing research
+(\cite{abo2016faq}) and will be of great interest to us in the future.
+
+On the input side however, users will expect set semantics, because
+that matches the mental modelling of a domain as individual
+facts. Transacting a triple such as \texttt{[x :knows y]} twice is
+usually expected to simply assert that fact \emph{no matter what was
+  true before}, rather than to indicate an increased weight of that
+specific edge in a weighted hypergraph.
+
+The Hector operator in fact assumes its inputs to be distinct. For
+tuples with multiplicities larger than one, output multiplicites will
+not be correct any longer, because they might be multiplied more than
+once. This is because prefix and proposal multiplicites are multiplied
+\emph{at each extension step}.
+
+Unless otherwise specified by the user, 3DF will therefore apply a
+\texttt{distinct} to attribute input streams.
+
+One underexplored aspect of this decision is how it affects the size
+of the available plan space. Quoting again \cite{aref2015design}:
+
+\begin{quote}
+  [...] traditional SQL-based relational database systems adhere to a
+  bag (multiset) semantics, [...]. This design choice drastically
+  reduces the opportunity for query optimization, since it often
+  happens that queries that are logically equivalent under set
+  semantics are not under the bag-semantics.
+\end{quote}
+
+We recognize this as a potential trade-off, but haven't yet explored
+its effects on our specific setting.
+
+\subsection{Adaptive Dataflows}
+
+Early on in section \ref{technique-adaptive} we described the eddy
+operator from \cite{avnur2000eddies}. We believe that the primary use
+case of eddies, adaptive join orderings, is better served by
+data-parallel worst-case optimal join algorithms as implemented in
+this work, because they do not require additional synchronization
+logic and provide provably optimal bounds.
+
+However, adaptive routing between dataflows could be a complementary
+technique to avoid the overheads of worst-case optimal join processing
+(both in terms of dataflow size and best-case latencies). In
+combination with flow control techniques such as those developed in
+\cite{lattuada2016faucet}, this could allow us to safely re-introduce
+heuristic elements into the query planner.
+
+We imagine an adaptive operator that can route between a worst-case
+optimal and a traditional join-at-a-time dataflow, feeding new inputs
+only as either route completes its previous inputs. After running both
+plans in parallel for some time, the worse performing dataflow could
+be slowly starved and ultimately shut down.
+
+For somewhat predictable data sources, doing so could significantly
+reduce the overall dataflow size and complexity, thus supporting more
+concurrent users. On data sources that undergo significant changes
+over time, doing so would not protect us from sudden catastrophic
+skews any longer.
 
 \subsection{Static Optimizations}
 
