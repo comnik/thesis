@@ -203,20 +203,38 @@ to cardinality estimation (and thus to join ordering and query
 planning at large) are susceptible to exponentially compounding
 estimation errors due to the use of heuristics.
 
-A more recent field of research explored the idea, that if disastrous
-plans would have to be expected from time to time, systems might be
-able to detect them and adapt on the fly.
+An additional problem arises in the context of continuously evaluating
+queries over data streams, because the heuristics available at query
+registration time might bear very little resemblance to those gathered
+after a few hours of new inputs. Therefore any planning decisions made
+based on those assumptions will have to be revised over time.
+
+Adaptive query processing explores the idea, that if disastrous plans
+are to be expected every once in a while, and planning assumptions
+change over time, then systems should be able to adapt planning
+decisions on the fly.
 
 \cite{avnur2000eddies} introduced a new query processing architecture,
-called \emph{Eddies}, which continuously reorders operators as it
-runs. In a dataflow settings, this is best imagined as an additional
-dataflow operator routing input tuples between a set of candidate
-operators.
+called \emph{eddy}, which ``continuously reorders operators in a query
+plan as it runs''. In a dataflow settings, this is best imagined as an
+additional dataflow operator routing input tuples between a set of
+candidate operators. The routing logic is then adapted, based on the
+measured flow of tuples from each of the candidate operators.
 
-Such an architecture has additional benefits for long-running queries,
-as we might not want to spend a lot of time on fine-grained planning
-at registration time, but rather amortize the planning cost and adapt
-as we gather more statistics about runtime behaviour.
+A significant challenge in \cite{avnur2000eddies} is the problem of
+identifying \emph{moments of symmetry}, synchronization points within
+the processing pipeline, at which operator inputs can be re-ordered
+without the need to modify the accumulated operator state (which can
+be on the order of the entire input relation for joins).
+
+A complementary approach to the adaptive query processing problem is
+\emph{progressive optimization}, as employed by
+\cite{markl2004robust}. This work extends the query processing
+pipeline with a re-optimization step, validating cardinality estimates
+against the actual values measured during execution of a previous
+query. Re-optimization imposes a synchronization barrier on the
+processing pipeline, which is inappropriate for the continuous
+setting.
 
 \subsection{Worst-Case Optimal Join Processing}
 
