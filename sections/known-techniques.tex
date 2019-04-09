@@ -236,35 +236,57 @@ query. Re-optimization imposes a synchronization barrier on the
 processing pipeline, which is inappropriate for the continuous
 setting.
 
-\subsection{Worst-Case Optimal Join Processing}
+Further, in real-world usage we can hardly avoid correlated columns,
+because they are the only practical tool to model discrete, functional
+dependencies. This largely invalidates the independence assumption of
+join predicates.
 
-@TODO How do eddies and WCO proposals relate?
+Finally, any slightly over-optimistic estimation will immediately
+cause errors proportional in the size of the relation, because
+[@TODO].
 
-Worst-Case Optimal Joins
+In summary, we must conclude that cardinality estimation can not avoid
+disastrous plans in real-world usage.
 
-We have treated the established practice of implementing multi-way
-joins via sequences of two-way joins in detail, and considered its
-extension to the interactive differential dataflow setting. In this
-section we will do the same for recent advances in multi-way join
-algorithms.
+\subsection{Worst-Case Optimal Join Processing} \label{technique-wco}
 
-Drawbacks of Nested Two-Way Joins
+Taken to their logical conclusion, the ideas from adaptive query
+processing lead to the nascent field of worst-case optimal join
+processing. Here the fundamental observation is, that the traditional
+approach to multi-way joins (consecutive two-way joins, or
+\emph{join-at-a-time}) will always be sub-optimal for certain queries,
+because they generate intermediate results that can be larger than the
+final result set.
 
-Consider a three-way join $(\Join A B C)$, implemented as a nested
-dataflow with a fixed order $(\Join (\Join A B) C)$.
+The initial work on worst-case optimal join algorithms is due to
+\cite{ngo2012worst}, with independent results by
+\cite{veldhuizen2012leapfrog}. Both of these algorithms (called
+\emph{NPRR} and \emph{Leapfrog TrieJoin} respectively) avoid
+generating intermediate results and are thus considered to process
+n-way joins all at once, instead of join-at-a-time. In fact, both were
+later generalized under a common framework in \cite{ngo2013skew}.
 
-For such a plan, Differential dataflow will by default maintain
-arrangements of every intermediate result ($(\Join A B)$ in this
-case), incurring additional memory overhead and some time spent
-managing the shared trace.
+Given some ordered sequence of target variables (e.g. \texttt{[?a ?b
+    ?c]}) and a set of relations (e.g. \texttt{{[?a :edge ?b] [?b
+      :edge ?c] [?c :edge ?a]}}) both algorithms proceed
+\emph{variable-by-variable}, not relation-by-relation. They will for
+example start by determining the set of all possible bindings of
+\texttt{[?a]}, they might first determine all possible extensions to
+\texttt{[?a ?b]} @TODO
 
-Additionally, fixing the join order can cause unnecessary
-materialization of tuples, not just for the initial result, but also
-in the incremental case. Intuitively this is because the optimal join
-order (in the incremental case) depends in which relation a change
-occurred.
+\cite{ciucanu2015worst} apply ideas from worst-case optimal join
+within the framework of \emph{factorized databases}. They show, that
+worst-case optimal complexity can be achieved with join-at-a-time
+plans as well, by eliminating redundancy from the representation of
+intermediate results.
 
-@TODO concrete examples
+More recently, \cite{ammar2018distributed} give worst-case optimal
+join algorithms for the data-parallel dataflow setting. The resulting
+operators are very much reminiscent of eddies, in that they make
+planning decisions on a per-tuple basis. However, they do not require
+moments of symmetry nor synchronized re-optimization points. They also
+extend the worst-case optimality to cover communication costs between
+workers.
 
 \subsection{Stream Optimization}
 
@@ -275,7 +297,9 @@ a few.
 \textbf{Operator Reordering} is a much simpler version of the ideas
 discussed in the previous chapters. The basic idea is to move more
 selective operators upstream, in order to minimize the number of
-tuples propagated downstream.
+tuples propagated downstream. Selectivity in this setting is treated
+mostly at the level of operator types (e.g. \texttt{Filter} has a
+higher selectivity than \texttt{Map}).
 
 \textbf{Redundancy Elimination} attempts to remove redundant operators,
 e.g. by moving equivalent operators on two branches of a dataflow into
@@ -294,9 +318,9 @@ these operators upstream might thus severely reduce the re-usability
 of a dataflow trunk, while significantly reducing the number of tuples
 flowing downstream. 
 
-Hirzel et al. again cite more sophisticated techniques to share
-dataflow elements in a multi-tenant setting. We will come back to
-these in chapter \ref{case-redundant-dataflows}.
+Hirzel et al. cite more sophisticated techniques to share dataflow
+elements in a multi-tenant setting. We will come back to these in
+chapter \ref{case-redundant-dataflows}.
 
 A similar trade-off arises between separation of operators into
 smaller computational steps in order to exploit pipeline parallelism,
@@ -305,40 +329,15 @@ communication and scheduling overheads. For example, multiple
 transform or filter stages can be merged into a single one, by
 composing their transformation functions / predicates, and vice versa.
 
-Differential's arrangements provide a general purpose way to share
-compacted and sorted batches of tuples between operators.
+Most of the techniques explored in this line of inquiry are geared
+towards simpler computational frameworks than the relational model and
+its extensions. Additionally, Differential's arrangements already
+provide a general purpose way to share compacted and sorted batches of
+tuples between operators.
 
-\subsection{Efficient Representations}
-
-\cite{abadi2013design} note that data stored in columns is more
-compressible than data stored in rows, because the former generally
-have lower information entropy and better value locality. Having
-established the column-inspired data model of 3DF in \ref{3df}, we are
-now interested to what extent efficient, column-oriented
-representations can be exploited in differential collections.
-
-Again Abadi et al. list several common compression schemes employed in
-modern column-stores:
-
-1. Run length encoding
-2. Bit-vector encoding
-3. Dictionary encodings
-4. Frame-of-reference encoding
-
-Differential collections already employ a kind of run length encoding
-scheme, by virtue of their multi-set semantics.
-
-\subsubsection{Late Materialization}
-
-@TODO
-Another technique from the world of column-stores. It seems like a
-generalization of predicate-pushdown. E.g. for certain simple
-aggregates it should be possible to push-down the aggregation and do
-it directly on a (potentially compressed) single column.
-
-\subsubsection{Interning}
-
-@TODO
+In conclusion, while micro optimizations on the dataflow graph can be
+very beneficial, we are more concerned with optimizations that affect
+the overall system design and provide asymptotic improvements.
 
 \subsection{Conclusions}
 
@@ -350,40 +349,51 @@ plans not only affect individual query performance, but negatively
 impact all users of the system.
 
 At a first glance, translating the System R approach to 3DF seems
-straightforward. Materialized sub-computations (\emph{arrangements})
-provide additional access-paths to tuples, for which a reasonable cost
-model could be established. Systems such as \cite{condie2008evita}
-provide interesting precedence of applying Datalog to the internals of
-a query engine itself.
+straightforward. Materialized sub-computations (via Differential's
+arrangements) could provide additional access-paths to tuples, for
+which a reasonable cost model could be established. Systems such as
+\cite{condie2008evita} provide interesting precedence of applying
+Datalog to the internals of a query engine itself. Arguably, the
+suitability of Differential to on-line analytical computations would
+ease some of the challenges of maintaining up-to-date metrics on
+relations, without incurring a significant operational overhead.
 
-Arguably, the suitability of Differential to on-line analytical
-computations would ease some of the challenges of maintaining
-up-to-date metrics on relations, without incurring a significant
-operational overhead. Yet, we do not see a promising avenue to tackle
-the fragility of cardinality estimation (as discussed in the previous
-sections) on complex queries invoving many joins using fundamentally
-heuristics-based techniques.
+But we have also seen that 3DF's continuous query processing model
+breaks crucial assumptions made by traditional planners to an extent,
+that we do not see a heuristics based approach as viable. Summarizing
+the above sections, the reasons for this are manifold:
 
-Even worse, subgraph queries will often not have \texttt{@TODO}
+\begin{enumerate}
+  \item
+    Cardinality estimation is simultaneously the most important and
+    the most fragile part of query planning. Estimation errors are
+    often proportional in the size of entire relations and compound on
+    complex queries invoving many joins. We saw that estimation errors
+    of many orders of magnitude are not merely a theoretical concern
+    but a common occurrence in real world planners.
 
-The execution model of differential dataflows and the highly dynamic
-environments 3DF is designed for do not bear much resemblance to the
-operational realities 40 years ago. Traditional planners are not built
-with incremental, streaming evaluation in mind. In our setting, we
-must implement computations \emph{before} any data (and thus any
-heuristics) are available. This invalidates the assumption of
-global-knowledge that traditional query planners operate under.
+  \item
+    In our setting, we must implement computations \emph{before} any
+    data (and thus any heuristics) are available. Data sources are
+    heterogeneous, live outside of 3DF and will often not provide the
+    neccessary statistics. This invalidates the assumption of
+    global-knowledge that traditional query planners operate under.
 
-Further, in real-world usage we can hardly avoid correlated columns,
-because they are the only practical tool to model discrete, functional
-dependencies. This largely invalidates the independence assumption of
-join predicates.
+  \item
+    Even in clean, normalized data models, certain correlations
+    between columns are near impossible to avoid in practice, because
+    a relation is often the only feasible way of modeling discrete,
+    functional dependencies.
 
-Finally, any slightly over-optimistic estimation will immediately
-cause errors proportional in the size of the relation, because
-[@TODO].
+  \item
+    Even assuming accurate and timely metrics, certain queries (such
+    as the subgraph queries from section \ref{technique-wco}) have
+    \emph{no} join-at-a-time plan that materializes no more tuples
+    than the maximum result set size.
+\end{enumerate}
 
-In summary, we must conclude that cardinality estimation can not avoid
-disastrous plans in real-world usage.
+Fortunately we have also seen that more recent approaches from the
+field of adaptive query processing and worst-case optimal join
+processing match our operational needs much more closely.
 
 \end{document}
