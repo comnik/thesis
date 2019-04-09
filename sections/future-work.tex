@@ -2,13 +2,62 @@
 
 \begin{document}
 
-- @TODO hybrid planners
-- @TODO monoid aggregations
-- @TODO automated policies for deciding re-use, etc..
-- @TODO CardinalityOne vs CardinalityMany
+A field as vast as query optimization, providing innovations that are
+as exciting as they are recent, and the novel computational model that
+Differential Dataflow presents make it impossible to cover all
+relevant aspects and questions to a satisfactory degree. In this
+chapter we will touch upon insights and questions for future research
+that were obtained over the course of this work, without neccessarily
+fitting its major themes.
 
-A hybrid cost-based approach in \cite{mhedhbi2019optimizing} shows
-promising results.
+\subsection{Automated Policies}
+
+We have pointed out significant challenges to continuously evaluated,
+complex relational query processing in an interactive, multi-user
+environment. While we described, implemented, and evaluated effective
+remedies, we have stopped short of providing a fully automated
+framework for making planning decisions based on these
+insights. Providing a fully automated planner is of course essential
+to any real-world system and will thus be of great interest to us in
+future work.
+
+\subsection{Hybrid Approaches}
+
+Throughout this work we have discussed the severe downsides of
+cost-based optimization and have accordingly made efforts to build on
+entirely different primitives. Nevertheless, exploring the interplay
+between worst-case optimal algorithms and traditional join processing
+within a hybrid cost-model warrants attention. A recent paper by
+\cite{mhedhbi2019optimizing} introduces such a hybrid planner
+architecture, with promising results.
+
+\subsection{Adaptive Dataflows}
+
+Early on in section \ref{technique-adaptive} we described the eddy
+operator from \cite{avnur2000eddies}. We believe that the primary use
+case of eddies, adaptive join orderings, is better served by
+data-parallel worst-case optimal join algorithms as implemented in
+this work, because they do not require additional synchronization
+logic and provide provably optimal bounds.
+
+However, adaptive routing between dataflows could be a complementary
+technique to avoid the overheads of worst-case optimal join processing
+(both in terms of dataflow size and best-case latencies). In
+combination with flow control techniques such as those developed in
+\cite{lattuada2016faucet}, this could allow us to safely re-introduce
+heuristic elements into the query planner.
+
+We imagine an adaptive operator that can route between a worst-case
+optimal and a traditional join-at-a-time dataflow, feeding new inputs
+only as either route completes its previous inputs. After running both
+plans in parallel for some time, the worse performing dataflow could
+be slowly starved and ultimately shut down.
+
+For somewhat predictable data sources, doing so could significantly
+reduce the overall dataflow size and complexity, thus supporting more
+concurrent users. On data sources that undergo significant changes
+over time, doing so would not protect us from sudden catastrophic
+skews any longer.
 
 \subsection{Datalog Evaluation Strategies}
 
@@ -36,7 +85,7 @@ once disagree with \cite{aref2015design}, who state that:
 
 Queries involving grouped aggregations commonly lead to redundant
 tuples within each group. Consider for example a simple query summing
-the total salary cost per company 
+the total salary cost per company
 
 \begin{verbatim}
 [:find ?company (sum ?salary)
@@ -113,42 +162,14 @@ of the available plan space. Quoting again \cite{aref2015design}:
 We recognize this as a potential trade-off, but haven't yet explored
 its effects on our specific setting.
 
-\subsection{Adaptive Dataflows}
+\subsection{Richer Attribute Semantics}
 
-Early on in section \ref{technique-adaptive} we described the eddy
-operator from \cite{avnur2000eddies}. We believe that the primary use
-case of eddies, adaptive join orderings, is better served by
-data-parallel worst-case optimal join algorithms as implemented in
-this work, because they do not require additional synchronization
-logic and provide provably optimal bounds.
+Throughout the discussions in chapter \ref{case-join-ordering} in
+particular, we have made no stricter assumptions on attributes than
+that they be distinct (as touched on in the previous section). We
+suspect that allowing users to express more specific attribute
+semantics will open up entirely new optimization avenues.
 
-However, adaptive routing between dataflows could be a complementary
-technique to avoid the overheads of worst-case optimal join processing
-(both in terms of dataflow size and best-case latencies). In
-combination with flow control techniques such as those developed in
-\cite{lattuada2016faucet}, this could allow us to safely re-introduce
-heuristic elements into the query planner.
-
-We imagine an adaptive operator that can route between a worst-case
-optimal and a traditional join-at-a-time dataflow, feeding new inputs
-only as either route completes its previous inputs. After running both
-plans in parallel for some time, the worse performing dataflow could
-be slowly starved and ultimately shut down.
-
-For somewhat predictable data sources, doing so could significantly
-reduce the overall dataflow size and complexity, thus supporting more
-concurrent users. On data sources that undergo significant changes
-over time, doing so would not protect us from sudden catastrophic
-skews any longer.
-
-\subsection{Static Optimizations}
-
-The finer-grained language of bindings described in chapter
-\ref{implementation}, and in particular the use of the
-\texttt{constant} binding surfaced interesting opportunities for
-static optimizations. For example, by moving conjunctive clauses into
-disjunctions (using DeMorgan's law), we at times identified entire
-branches that couldn't possibly produce results, due to conflicting
-constant bindings.
+- @TODO CardinalityOne vs CardinalityMany
 
 \end{document}
