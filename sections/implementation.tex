@@ -238,8 +238,10 @@ In order to be able to express the worst-case optimal join strategy
 explored throughout this work, a new query plan stage and
 corresponding operator implementation had to be added. We've based the
 present implementation off of \cite{dogsdogsdogs} and
-\cite{dataflowjoin}. The resulting operator is called \emph{Hector}
-and will be referred to as such throughout this chapter.
+\cite{dataflowjoin}, which itself is an implementation of the
+\emph{Delta-BiGJoin} algorithm from \cite{ammar2018distributed}. The
+resulting operator is called \emph{Hector} and will be referred to as
+such throughout this chapter.
 
 At a high-level, the Hector operator provides the following
 capability: Given a set of bindings (as described in \ref{bindings})

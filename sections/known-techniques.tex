@@ -264,15 +264,34 @@ The initial work on worst-case optimal join algorithms is due to
 \emph{NPRR} and \emph{Leapfrog TrieJoin} respectively) avoid
 generating intermediate results and are thus considered to process
 n-way joins all at once, instead of join-at-a-time. In fact, both were
-later generalized under a common framework in \cite{ngo2013skew}.
+later generalized under a common framework in \cite{ngo2013skew},
+called \emph{GenericJoin}.
 
 Given some ordered sequence of target variables (e.g. \texttt{[?a ?b
     ?c]}) and a set of relations (e.g. \texttt{{[?a :edge ?b] [?b
-      :edge ?c] [?c :edge ?a]}}) both algorithms proceed
-\emph{variable-by-variable}, not relation-by-relation. They will for
-example start by determining the set of all possible bindings of
-\texttt{[?a]}, they might first determine all possible extensions to
-\texttt{[?a ?b]} @TODO
+      :edge ?c] [?c :edge ?a]}}) GenericJoin proceeds
+\emph{variable-by-variable} (rather than relation-by-relation),
+starting from the set containing only the empty prefix. Given a set of
+prefixes, GenericJoin iteratively computes the \emph{extension} of
+that set to the next variable in the variable ordering.
+
+For each such extension stage, candidate extensions will be drawn from
+whichever relation promises to propose the least number of extensions,
+and intersected with the would-be proposals from all other
+relations. Assuming suitable indices on the relations, determining the
+number of proposals for a relation and a given prefix can be done in
+constant or logarithmic time. Similarly, intersecting a proposed
+extension with a relation's proposal index can be done in constant or
+logarithmic time. Additionally, proposals must be provided with
+constant delay.
+
+Under these assumptions, each extension stage of a GenericJoin will
+only do work on the order of the largest possible result set.
+
+Picking suitable variable orderings is a crucial part of these new
+algorithms. While sub-optimal orderings do not affect the theoretical
+guarantees, they can make a significant difference in
+practice. Intuitively, this is because the maximum size of the result set 
 
 \cite{ciucanu2015worst} apply ideas from worst-case optimal join
 within the framework of \emph{factorized databases}. They show, that
