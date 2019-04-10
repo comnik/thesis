@@ -170,6 +170,31 @@ that they be distinct (as touched on in the previous section). We
 suspect that allowing users to express more specific attribute
 semantics will open up entirely new optimization avenues.
 
-- @TODO CardinalityOne vs CardinalityMany
+We have often encountered attributes that should hold at most a single
+value for each distinct entity id. For example, an attribute such as
+\texttt{:device/speed} might often be intended to hold the most recent
+measurement for each device. Assuming an existing fact \texttt{[x
+    :device/speed 120]}, users expect a subsequent input \texttt{[x
+    :device/speed 200]} to mean both the retraction of the previous
+value, as well as the assertion of the current one.
+
+To accomodate this, we have extended 3DF with the concept of
+\emph{input semantics}, which can be configured for each attribute
+individually. A custom stateful operator enforcing retraction of
+previous values is applied to attributes marked
+\texttt{CardinalityOne}.
+
+Whenever a CardinalityOne attribute participates in a worst-case
+optimal prefix extension of its key symbol to its value symbol, we
+know that it will only ever propose zero or one. For star-joins on
+exclusively CardinalityOne attributes we can thus guarantee domain
+overlap and a uniform distribution of values. While attributes might
+still be correlated in adversarial ways, it might still be safe to use
+simpler, non worst-case optimal join implementations (delta queries
+without an estimation phase, or join-at-a-time pipelines).
+
+Identifying, evaluating, and expressing such special cases within an
+extensible framework would be an interesting topic of further
+research.
 
 \end{document}
