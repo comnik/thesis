@@ -283,32 +283,14 @@ corresponding dataflow as the \emph{delta pipeline}.
 (3) d_edge(a, c) -> edge(a, b) -> edge(b, c)
 \end{verbatim}
 
-All delta pipelines are executed concurrently at the dataflow
-level. This can lead to inconsistencies as we might derive the same
-output change on multiple pipelines, when sources change
-concurrently. Assume for example we have a graph containing the
-triangle \texttt{[100 200 300]}, formed by the edges \texttt{(100
-  200), (200 300), and (100 300)}. A single change \texttt{((100 200)
-  -1)} to the \texttt{:edge} attribute will cause all three pipelines
-to derive the same retraction \texttt{([100 200 300] -1)}.
-
-To prevent this, we must impose a logical order on the computation. In
-particular, we must ensure that the retraction of \texttt{@TODO}
-
-Delta pipelines are therefore created within a new, nested scope
-carrying the \texttt{AltNeu} timestamp type. Upon use, attributes such
-as \texttt{:edge} are imported and wrapped with the corresponding
-\texttt{AltNeu} timestamp. We cache imported arrangements by attribute
-name, to prevent redundant imports.
-
-Recall that a worst-case optimal join picks an appropriate variable
-order (more on this crucial step later), along which a collection of
-prefixes (initially containing only the empty prefix) is extended to
-bind more and more symbols. While conceptually this is correct, it
-does not translate directly into the dataflow setting. Dataflows must
-always start with some source of input. In our case, the finest
-grained source of input available are tuple-providing bindings,
-i.e. the \texttt{attribute} binding — which already binds two symbols!
+A worst-case optimal join picks an appropriate variable order (more on
+this crucial step later), along which a collection of prefixes
+(initially containing only the empty prefix) is extended to bind more
+and more symbols. While conceptually this is correct, it does not
+translate directly into the dataflow setting. Dataflows must always
+start with some source of input. In our case, the finest grained
+source of input available are tuple-providing bindings, i.e. the
+\texttt{attribute} binding — which already binds two symbols!
 
 In order to consider changes to each individual variable separately,
 we could break attributes further down into unified input collections
@@ -363,6 +345,93 @@ values for $x$. This is the same intuition behind the need to avoid
 join orderings that would require computing the cartesian product of
 two relations.
 
+From the set of relevant, ready bindings we derive a set of prefix
+extenders. Each binding type corresponds to a prefix extender
+implementation. Our extender implementations are detailed in the next
+subsection. Extenders participate in a three-step process:
+
+\textbf{Count} In the count step we determine for each source prefix
+the extender that will propose the fewest extensions for it. This is
+done by passing a stream of \texttt{(prefix count extender\_idx)}
+through each extender's \texttt{count} operator. Initially all counts
+are set to infinity. The count step results in a stream of
+\emph{nominations} for each extender (prefixes for which the
+respective extender has ``won the bid'').
+
+\textbf{Propose} Nomination streams are passed through their
+respective extender's \texttt{propose} operator. Propose
+implementations materialize the extensions they counted in the
+previous step and output a stream of \texttt{(prefix extension)}
+pairs.
+
+\textbf{Validate} Each extender's proposals are validated by all other
+extenders. This is done by passing the stream of proposed pairs
+through each extender's \texttt{validate} operator. Intuitively,
+validate implementations compute the intersection of the set of
+proposals with extensions that they themselves would have proposed,
+had they been nominated to extend.
+
+The output streams from the validation stage are concatenated together
+and will form the stream of input prefixes for the next extension
+stage. After the final stage, an additional projection onto the
+variables requested by the user is performed.
+
+\subsubsection{Prefix Extender Implementations}
+
+Prefix extenders must provide \texttt{count}, \texttt{propose}, and
+\texttt{validate} operators. While conceptually simple, these
+implementations must not break the worst-case optimality, meaning that
+they can only do work proportional to the lowest number of extensions
+proposed by any of them (for a given extension stage).
+
+The count operator must therefore avoid materializing and counting all
+proposals, as doing so for every extender would immediately violate
+the worst-case optimality. Implementations like Leapfrog TrieJoin and
+our own will accept count implementations that take logarithmic time
+(e.g. looking up prefixes in a suitable index).
+
+As long as only the winning extender is asked to propose, the propose
+implementation must only make sure to propose tuples with constant
+delay.
+
+A naive validation implementation might materialize all of its
+proposals and compute the set intersection. This of course violates
+worst-case optimality. However we may again take logarithmic time to
+lookup proposed extensions in an index.
+
+\textbf{CollectionExtender} \cite{dogsdogsdogs} gives an
+implementation of a prefix extender for Differential collections of
+key-value pairs, which we have largely adapted as is to implement
+prefix extension for 3DF attributes. The resulting implementation
+maintains attributes across three separate indices (count, propose,
+and validate) backed by Differential arrangements. Arrangements
+support lookups in logarithmic time.
+
+\textbf{ConstantExtender} Prefix extension for constant bindings is
+not backed by data other than the constant value. The count
+implementation simply issues a count of one for each prefix. Propose
+proposes for each prefix the constant value. Finally validate filters
+the stream of proposed extensions to only include those which match
+the constant value.
+
+\textbf{BinaryPredicateExtender} Prefix extension for binary predicate
+bindings is again not backed by data. Predicate extenders can never be
+asked to propose, because it would have to propose infinitely many
+extensions. The count implementation is therefore a noop, whereas the
+propose implementation causes a runtime error, should the predicate
+extender receive a nomination. The validate implementation will apply
+the desired predicate to each proposed extension and to the prefix
+offset binding the second argument.
+
+\textbf{AntijoinExtender} Antijoin extenders implement negation as set
+difference and thus wrap any other extender. Due to the stratification
+requirement, antijoin extenders must not be asked to propose, and thus
+implement count as a noop and propose as a runtime error. During
+validation, antijoin extenders will subtract all extensions that the
+wrapped extender has validated from the result stream.
+
+\subsubsection{Suitable Variable Orderings}
+
 We have deferred the problem of choosing a suitable variable
 ordering. The notion of \emph{readiness} allows us to define a
 suitable ordering as one that includes all variables bound by any of
@@ -390,6 +459,26 @@ be equally valid to extend first to \texttt{?c} and then to
 
 Finding the optimal variable ordering is beyond the scope of this
 work, but treated extensively in \cite{abo2016faq}.
+
+\subsubsection{Lexicographic Timestamps}
+
+All delta pipelines are executed concurrently at the dataflow
+level. This can lead to inconsistencies as we might derive the same
+output change on multiple pipelines, when sources change
+concurrently. Assume for example we have a graph containing the
+triangle \texttt{[100 200 300]}, formed by the edges \texttt{(100
+  200), (200 300), and (100 300)}. A single change \texttt{((100 200)
+  -1)} to the \texttt{:edge} attribute will cause all three pipelines
+to derive the same retraction \texttt{([100 200 300] -1)}.
+
+To prevent this, we must impose a logical order on the computation. In
+particular, we must ensure that the retraction of \texttt{@TODO}
+
+Delta pipelines are therefore created within a new, nested scope
+carrying the \texttt{AltNeu} timestamp type. Upon use, attributes such
+as \texttt{:edge} are imported and wrapped with the corresponding
+\texttt{AltNeu} timestamp. We cache imported arrangements by attribute
+name, to prevent redundant imports.
 
 \subsection{Multi-tenant Routing}
 
