@@ -37,7 +37,7 @@ approaches to incrementalizing traditional query engines, they lack
 the relational abstractions, strong consistency guarantees, and the
 ability to distribute recursive queries.
 
-\subsection{Traditional Query Optimization}
+\subsection{Cost-Based Query Planning}
 
 The field of query optimization is vast. For the purposes of this work
 we will be focusing mostly on relational query planning. Query
@@ -111,43 +111,44 @@ across many base relations. This implies that 3DF would be exceedingly
 sensitive to these kinds of ballooning errors.
 
 Neither the importance of cardinality estimation, nor the difficulty
-of doing it correctly are surprising. Until recently, most strategies
-for planning multi-way joins consisted of breaking down an n-way join
+of doing it accurately are surprising. Until recently, most strategies
+for planning multi-way joins consisted of breaking down a n-way join
 into a (hopefully optimal) sequence of two-way joins. In such a
-setting, accurate cardinality estimation of the result of joining two
-relations (also known as the join's \emph{selectivity}) is crucial, in
-order to pick a plan that materializes as few tuples as possible.
+setting, accurately estimating the number of tuples contained in the
+result set of joining two relations is crucial in order to pick a plan
+that materializes as few tuples as possible.
 
 Many modern database systems still compute their estimates under the
 same assumptions originally proposed for System R. In the following,
 we want to review a few of those assumptions.
 
-\subsubsection{Uniformity}
+\begin{itemize}
+\item \textbf{Uniformity}
 
-Consider a simple constant binding on a column \texttt{[?x
-    :comment/browser Firefox]}, asking for user comments created using
-the Firefox browser. Following \cite{selinger1979access}, the
-selectivity of such a clause would be computed as
+  Consider a simple constant binding on a column \texttt{[?x
+      :comment/browser Firefox]}, asking for user comments created using
+  the Firefox browser. Following \cite{selinger1979access}, the
+  selectivity of such a clause would be computed as
 
-\begin{equation}
-  \dfrac{1}{dom(\text{:comment/browser})} = \dfrac{1}{5}
-\end{equation}
+  \begin{equation}
+    \dfrac{1}{dom(\text{:comment/browser})} = \dfrac{1}{5}
+  \end{equation}
 
-assuming five distinct browsers appear within our dataset. Crucially,
-this formula assumes a uniform distribution of browsers, whereas we
-would expect a distribution matching actual browser usage in our
-target markets.
+  assuming five distinct browsers appear within our dataset. Crucially,
+  this formula assumes a uniform distribution of browsers, whereas we
+  would expect a distribution matching actual browser usage in our
+  target markets.
 
-Given some additional index statistics, such as a histogram of the
-actual frequencies, an optimizer might reasonibbly be expected to
-determine a more accurate estimate.
+  Given some additional index statistics, such as a histogram of the
+  actual frequencies, an optimizer might reasonibbly be expected to
+  determine a more accurate estimate.
 
-However, as noted in \cite{lohman2014query}, queries in the real world
-are often not written by humans directly but by other software
-sytems. Such systems will often allow additional parameterization of
-the query via a user interface. In the particular case of 3DF we will
-often see the following transform, introducing an additional parameter
-input:
+  However, as noted in \cite{lohman2014query}, queries in the real world
+  are often not written by humans directly but by other software
+  sytems. Such systems will often allow additional parameterization of
+  the query via a user interface. In the particular case of 3DF we will
+  often see the following transform, introducing an additional parameter
+  input:
 
 \begin{verbatim}
 [:find ?x :where [?x :comment/browser "Firefox"]]
@@ -174,27 +175,45 @@ today's architectures. 3DF's data model is built with heterogeneous,
 external data sources in mind, for which suitable statistics might not
 be available.
 
-\subsubsection{Principle of Inclusion}
+\item \textbf{Principle of Inclusion}
 
 \cite{selinger1979access} give the selectivity of a relational
 equi-join on two columns $c_1$ and $c_2$ as
 $\dfrac{1}{max(dom(c_1),dom(c_2))}$. This assumes that the domains of
 the two columns overlap. On otherwise unselected columns with
 appropriate referential constraints between them, this assumption is
-valid.
+valid. As soon as we apply other selection predicates before joining,
+this assumption will not hold in general.
 
-As soon as we apply other selection predicates before joining, this
-assumption will not hold in general. For a single, binary join,
-violating this assumption is usually not disastrous, because we 
-
-This becomes problematic in
-combination with the next assumption.
-
-\subsubsection{Independent Predicates}
+\item \textbf{Independence}
 
 Multiple conjunctive predicates on the same relation are assumed to be
 independent, allowing for their combined selectivity to be computed as
-the product of their individual selectivities.
+the product of their individual selectivities. In other words,
+individual attributes are assumed to be uncorrelated.
+
+While at first glance, with the good relational practice of
+normalizing data models in mind, this seems like a reasonable
+assumption, it quickly breaks down on real-world data. A simple
+example might be the two attributes ``age'' and ``salary'', which tend
+to correlate in most organizations. Breaking such functional
+dependencies down into more fundamental, independent attributes and
+combining them with intricate models neccessary to re-derive salaries
+is not feasible in practice. Often relations are the most succinct and
+pragmatic way to model a functional dependency.
+
+\end{itemize}
+
+For these reasons and others, cardinality estimates are seldom
+accurate in practice. More insidiously, any slightly over-optimistic
+selectivity estimation will immediately cause cardinality estimation
+errors proportional in the size of the relation.
+
+On a database with ten million entities, the uniformity assumption
+would lead us to assign a selectivity of $\dfrac{1}{10^7}$ to any
+individual predicate on each individual attribute. If any attribute
+proves even slightly less selective in practice, our cardinality
+estimate will be severly off.
 
 \subsection{Adaptive Query Processing} \label{technique-adaptive}
 
@@ -235,18 +254,6 @@ against the actual values measured during execution of a previous
 query. Re-optimization imposes a synchronization barrier on the
 processing pipeline, which is inappropriate for the continuous
 setting.
-
-Further, in real-world usage we can hardly avoid correlated columns,
-because they are the only practical tool to model discrete, functional
-dependencies. This largely invalidates the independence assumption of
-join predicates.
-
-Finally, any slightly over-optimistic estimation will immediately
-cause errors proportional in the size of the relation, because
-[@TODO].
-
-In summary, we must conclude that cardinality estimation can not avoid
-disastrous plans in real-world usage.
 
 \subsection{Worst-Case Optimal Join Processing} \label{technique-wco}
 
@@ -291,7 +298,8 @@ only do work on the order of the largest possible result set.
 Picking suitable variable orderings is a crucial part of these new
 algorithms. While sub-optimal orderings do not affect the theoretical
 guarantees, they can make a significant difference in
-practice. Intuitively, this is because the maximum size of the result set 
+practice. Intuitively, this is because the maximum size of the result
+set is itself dependent on the variable ordering.
 
 \cite{ciucanu2015worst} apply ideas from worst-case optimal join
 within the framework of \emph{factorized databases}. They show, that
