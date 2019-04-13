@@ -4,15 +4,16 @@
 
 \subsubsection{Problem}
 
-Throughout the previous chapters we have seen how delta queries and
-worst-case optimal join algorithms make much of 3DF's design
-possible. We have arrived at a system that provides robust,
-predictable performance within a multi-user environment, at high
-throughputs, with low latencies, and with bounded memory use. In doing
-so, we have somewhat overcorrected, at the expense of redundancies in
-the overall dataflow. Apart from the attribute indices, we have
-foregone almost all opportunities for sharing resources between
-dataflows.
+Throughout the previous chapters we have seen how to implement
+high-arity joins in constant memory and without falling back to
+heuristics, using delta queries and worst-case optimal join
+algorithms. We believe that these are important building blocks for
+our goal of providing robust, predictable performance within a
+multi-user environment, at high throughputs, with low latencies, and
+with bounded memory use. In doing so, we have somewhat overcorrected,
+at the expense of redundancies in the overall dataflow. Apart from the
+attribute indices, we have foregone almost all opportunities for
+sharing resources between dataflows.
 
 Query dataflows consume a number of resources over their entire
 lifetime, which might be measured in minutes or hours for interactive
@@ -84,38 +85,30 @@ simplified, role-based access control scheme might look like:
 \end{verbatim}
 
 Intuitively we might point out that recursively re-deriving the
-\texttt{role-access?} relation for each client seems wasteful. In
-general, given $n$ analysts, we can service their queries in three
+\texttt{role-access?} relation for each client seems wasteful.
+
+\subsubsection{Sharing Dataflows}
+
+In general, given $n$ analysts, we can service their queries in a few
 different ways.
 
-\subsubsection{Shared Nothing}
+\textbf{Shared Nothing} We create $n$ indepedent dataflows, sharing
+only the base relation indices. This gives us the greatest freedom to
+pick the best possible plans for each individual analyst, for example
+making use of the worst-case optimal join framework covered in
+chapters \ref{technique-wco} and \ref{case-join-ordering}. On the
+other hand, all of those $n$ dataflows will perform a lot of redundant
+work and incur significant overheads, deriving $n$ copies of the
+\texttt{comment} relation.
 
-We create $n$ indepedent dataflows, sharing only the base
-relations. This gives us the greatest freedom to pick the best
-possible plans for each individual analyst, for example making use of
-the worst-case optimal join framework covered in chapters
-\ref{technique-wco} and \ref{case-join-ordering}.
-
-On the other hand, all of those $n$ dataflows will perform a lot of
-redundant work and incur significant overheads, essentially deriving
-$n$ copies of the \texttt{comment} relation. Dataflow elements are not
-free either, and will incur scheduling and other bookkeeping
-overheads.
-
-Computing multiple redundant instance of a plan where worst-case
-optimal execution improves the asymptotic complexity can still be
-significantly cheaper.
-
-\subsubsection{Shared Trunk}
-
-Differential's \emph{arrangements} allow us to re-use materialized
-relations between dataflows. We could therefore create a single
-dataflow deriving the \texttt{comment} relation, on top of which $n$
-specialized dataflows will be only be responsible for implementing the
-specific additional joins requested by each analyst. Because
-arrangements materialize tuples into sorted batches, doing so will
-cost extra storage proportional in the size of the `comment` relation,
-on top of the storage taken up by base relations
+\textbf{Shared Trunk} Differential's \emph{arrangements} allow us to
+re-use materialized relations between dataflows. We could therefore
+create a single dataflow deriving the \texttt{comment} relation, on
+top of which $n$ specialized dataflows will be only be responsible for
+implementing the specific additional joins requested by each
+analyst. Because arrangements materialize tuples into sorted batches,
+doing so will cost extra storage proportional in the size of the
+`comment` relation, on top of the storage taken up by base relations
 (c.f. \ref{case-join-state}).
 
 Sharing a common part of the dataflow (a \emph{shared trunk}) avoids
@@ -128,46 +121,39 @@ On the other hand, materializing a shared trunk fixes the space of its
 possible implementations. In particular (as touched on in
 \ref{case-eagerness}) it prevents us from exploiting highly selective
 constraints provided by individual analysts to cut down on the number
-of tuples produced by each flow.
-
-In the specific case of the \texttt{comment} relation, this might not
-be a problem, as the number of tuples produced during its derivation
-is proportional to the number of comments in the system. For other
-relations (for example the transitive graph induced by the
-\texttt{:person/knows} relation) it might lead to catastrophic plans.
+of tuples produced by each flow. In the specific case of the
+\texttt{comment} relation, this might not be a problem, as the number
+of tuples produced during its derivation is proportional to the number
+of comments in the system. For other relations (for example the
+transitive graph induced by the \texttt{:person/knows} relation) it
+might lead to catastrophic plans.
 
 Whenever we are considering to build multiple dataflows off of a
 shared trunk, we must therefore estimate whether the shared trunk is
-\emph{sufficiently constrained}. This brings us back to the problem
-initially observed in \ref{case-eagerness}. After all our work to
-avoid heuristics and cardinality estimation, this would re-introduce
-an element of unpredictability into the behaviour of our system.
+\emph{sufficiently selective}.
 
-Additionally, once we've made the decision to share a flow, we must
-commit to maintaining it for as long as any dependent flows are
-active. Sharing via arrangements, in the current implementation, also
-causes some subtle coupling that can cause problems, if dependent
-dataflows don't make progress at roughly the same pace:
+Here we are again faced with what is essentially the defining
+trade-off of this work: increased specialization opens optimization
+potential, whereas increased generalization opens potential for
+resource re-use. After all our work to avoid heuristics and
+cardinality estimation, we would not want to re-introduce an element
+of unpredictability into the behaviour of our system.
 
-\begin{quote}
-[\ldots{}] by sharing the data we also need to share the restrictions
-we impose on the data when it comes to compaction of the history. If
-we have some operator that is failing to move forward in time, or
-doing so slowly, it may require the trace maintain historical data
-that others do not need so that it can operate correctly. Other
-operators will have to flip through historical distinctions that they
-themselves wouldn't have maintained, and could execute less
-efficiently than if they had their own personally compacted
-representation.
+Computing multiple redundant instance of a plan where worst-case
+optimal execution improves the asymptotic complexity can still be
+significantly cheaper than sharing the sub-optimal plan. Additionally,
+once we've made the decision to share a flow, we must commit to
+maintaining it for as long as any dependent flows are active.
 
-\cite{makingarrangements}
-\end{quote}
+Consistent with our robustness goal, we therefore want to err on the
+side of caution at the expense of reduced best-case
+scalability.
 
 \subsubsection{Multi-Tenant Dataflows}
 
-Luckily, an additional implementation strategy is available to us: we
-can model multi-tenancy within the data plane itself. Recall the query
-from earlier:
+In some situations, an additional implementation strategy might be
+available to us: we can model multi-tenancy within the data plane
+itself. Recall the query from earlier:
 
 \begin{verbatim}
 [:find ...
@@ -185,33 +171,23 @@ attribute.
  :where
  (comment ?comment ?place ...)
  [?place :place/name ?name-filter]
- [\_ :parameter/place-name ?name-filter]]
+ [_ :parameter/place-name ?name-filter]]
 \end{verbatim}
 
 This is useful in an of itself, because it gives us the ability to
 update the filter parameter (with updated results derived
-incrementally as usual), without registering separate queries.
+incrementally as usual), without registering separate queries. Once a
+query is parameterized in this way, we can allow multiple concurrent
+users to interact with the same parameter collection. Of course we
+must then make sure to isolate users from each other and route results
+correctly.
 
-It takes only a few extensions to generalize this approch to multiple
-concurrent users.
-
-First, we must indicate to 3DF, that the
-\texttt{:parameter/place-name} attribute adheres to special
-semantics. In particular, we must enforce, that clients may only add
-or retract values to it, they can not control the keys. Where usually
-a transaction would take the form \texttt{[:db/add <eid>
-    :parameter/place-name <value>]}, 3DF will only allow
-\texttt{[:db/add :parameter/place-name <value>]}.
-
-Rather, for all updates from a specific client, we will automatically
-associate that client's connection token as the key. This way, we can
-distinguish between parameters from different client. We make use of
-this information to route results correctly to their respective
-clients.
-
-This allows us to use a single dataflow for all $n$ analysts, while
-still being able to move the `:place/name` constraints into the same,
-worst-case optimal query plan.
+In this (admittedly simple) situation we can use a single dataflow for
+all $n$ analysts, while still being able to move the
+\texttt{:place/name} constraints into the same, worst-case optimal
+query plan. Still, real-world use cases (such as the access control
+policy from above) can already benefit from multi-tenant
+parameterization.
 
 We find precedence for this approach in the NiagaraCQ system by
 \cite{chen2000niagaracq}.
@@ -223,6 +199,52 @@ against the table of constants \cite{chen2000niagaracq}.
 
 \cite{hirzel2014catalog}
 \end{quote}
+
+It is also reminiscent of more recent work on partially-stateful,
+multi-tenant dataflow systems by \cite{gjengset2018noria}.
+
+\subsubsection{Identifying Opportunities for Re-use}
+
+Of course, re-use via parameterized, multi-tenant dataflows is not
+possible if users request different conjunctions. Finding common
+sub-structures across query plans that would be suitable for either of
+the approaches outlined above is in general a very computationally
+intensive problem.
+
+Declarative languages allow for simplified, pragmatic
+approach. Instead of arbitrary re-use across all clauses in all rules,
+we only consider re-use at rule boundaries.
+
+To facilitate this, each rule should be given a unique name. We can
+further break this down and give unique names to all conjunctions,
+e.g. by creating separate rules for the different branches of an
+\texttt{or} clause automatically. Additionally, we can split off plan
+stages that do not affect the underlying joins, such as projections,
+transformations, and aggregations.
+
+\subsubsection{Re-Use And Worst-Case Optimal Dataflow Joins}
+
+The worst-case optimal join operator outlined in chapter
+\ref{case-join-ordering} warrants special consideration
+w.r.t. resource sharing.
+
+First, most such algorithms (and in particular our implementation,
+c.f. chapter \ref{impl-hector}) assume that participating relations
+are available, indexed by each possible subset of their bound
+symbols. For a binary relation $(e,v)$ two indices would have to be
+maintained (one from $e$ to $v$, and one reverse index). For a ternary
+relation, e.g. $(a,b,c)$, already six indices are required.
+
+We therefore, by default, break derived n-ary relations down into
+their base relations. Re-using n-ary relations via a Differential
+arrangement would force us to create the additional required indices
+on the fly.
+
+Leaving aside the considerations from above, re-use of derived binary
+relations (e.g. \texttt{(access?  ?user ?document)}) is possible via
+the same indexing structures used for base relations. Within the
+dataflow model, index arrangements do not need to distinguish whether
+they are being fed by external inputs or from a derived relation.
 
 \subsubsection{Other Strategies}
 
@@ -236,35 +258,19 @@ XPath by compiling them all into a combined NFA [Diao et al. 2002].
 Similar NFA-based approaches can be found in the literature on complex
 event processing (e.g. \cite{agrawal2008}). While such methods are
 available to us in Timely Dataflow (e.g. via the built-in
-`StateMachine` operator), they do not fit cleanly into the relational
-model implemented by 3DF and Differential Dataflow. The question of
-whether the two approaches can be combined in a sensible way is left
-for future inquiry.
-
-\subsubsection{Identifying Opportunities For Sharing}
-
-Finding common sub-structures across query plans that would be
-suitable for either of the approaches outlined above is in general a
-very computationally intensive problem. For the purposes of this work
-we will not consider arbitrary re-use across rules, but rather stick
-to the following simplified approach.
-
-3DF already enforces that each registered rule be given a unique
-name. We can further break this down and give unique names to all
-conjunctions, e.g. by creating separate rules for the different
-branches of an `or` clause automatically.
-
-Additionally, we can split off plan stages that do not affect the
-underlying joins, such as `Transform` and `Aggregate`.
-
-\texttt{@TODO}
-
-\subsubsection{Remedy}
-
-Here we are meeting again a trade-off identified in the very first
-scenario we analysed, \texttt{Case 0}.
+\texttt{StateMachine} operator), they do not fit cleanly into the
+relational model implemented by 3DF and Differential Dataflow. The
+question of whether the two approaches can be combined in a sensible
+way is left for future inquiry.
 
 \subsubsection{Evaluation}
+
+We evaluated the performance of different re-use strategies with the
+following scenario. A constant load of 500 tuples per second was
+generated, simulating speed measurements reported by different
+devices.
+
+Every second of the experiment, ten new clients were introduced using one of three strat 
 
 \begin{figure}[h!]
   \begin{subfigure}{.5\textwidth}
@@ -278,33 +284,5 @@ scenario we analysed, \texttt{Case 0}.
 
   \caption{Per-Epoch Latencies}
 \end{figure}
-
-\subsubsection{Future Work}
-
-We think that expressing multi-tenancy within the data plane is a very
-powerful implementation strategy for dataflow systems. Still we might
-think about different ways to accomplish the same goal. Recall that we
-kept track of what parameters were associated with which client via
-the keys of a parameter relation.
-
-This approach has drawbacks when overlap between parameters from
-different tenants is high.
-
-In such cases we could make use of the fact, that sets of client
-tokens form a commutative monoid under set union. Any such monoid can
-take the place of Differential's multiplicities (and benefit from
-efficient in-place updates).
-
-@TODO
-If we want to re-use delta query pipelines we might have to generalize
-~AltNeu~ to be an integer, specifying the position in the
-chain. Otherwise the likelihood of compatible re-use across pipelines
-is negligible.
-
-@TODO iterated hector
-There is a remaining redundancy in Hector, in that whenever multiple
-Attribute bindings refer to the same attribute, we would be
-constructing more than one delta pipeline. In a way, a single change
-to the supporting attribute leads to multiple changes in the bindings.
 
 \end{document}

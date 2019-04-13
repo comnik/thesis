@@ -482,6 +482,50 @@ as \texttt{:edge} are imported and wrapped with the corresponding
 \texttt{AltNeu} timestamp. We cache imported arrangements by attribute
 name, to prevent redundant imports.
 
+\subsubsection{TODO}
+
+@TODO: more  implementation related 
+
+First, we must indicate to 3DF, that the
+\texttt{:parameter/place-name} attribute adheres to special
+semantics. In particular, we must enforce, that clients may only add
+or retract values to it, they can not control the keys. Where usually
+a transaction would take the form \texttt{[:db/add <eid>
+    :parameter/place-name <value>]}, 3DF will only allow
+\texttt{[:db/add :parameter/place-name <value>]}.
+
+Rather, for all updates from a specific client, we will automatically
+associate that client's connection token as the key. This way, we can
+distinguish between parameters from different client. We make use of
+this information to route results correctly to their respective
+clients.
+
+We think that expressing multi-tenancy within the data plane is a very
+powerful implementation strategy for dataflow systems. Still we might
+think about different ways to accomplish the same goal. Recall that we
+kept track of what parameters were associated with which client via
+the keys of a parameter relation.
+
+This approach has drawbacks when overlap between parameters from
+different tenants is high.
+
+In such cases we could make use of the fact, that sets of client
+tokens form a commutative monoid under set union. Any such monoid can
+take the place of Differential's multiplicities (and benefit from
+efficient in-place updates).
+
+@TODO
+If we want to re-use delta query pipelines we might have to generalize
+~AltNeu~ to be an integer, specifying the position in the
+chain. Otherwise the likelihood of compatible re-use across pipelines
+is negligible.
+
+@TODO iterated hector
+There is a remaining redundancy in Hector, in that whenever multiple
+Attribute bindings refer to the same attribute, we would be
+constructing more than one delta pipeline. In a way, a single change
+to the supporting attribute leads to multiple changes in the bindings.
+
 \subsection{Multi-tenant Routing}
 
 In chapter \ref{case-redundant-dataflows} we saw that multi-tenant
