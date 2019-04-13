@@ -12,5 +12,6 @@ set xlabel "Epoch"
 set ylabel "Completion Time (ms)"
 
 plot "./times_shared_nothing.csv" using 0:1 ls 1 title "Shared Nothing" with lines, \
-     "./times_interests.csv" using 0:1 ls 2 title "Shared Everything" with lines, \
-     "./times_multitenant.csv" using 0:1 ls 3 title "Multi-Tenant" with lines
+     "./times_shared_arrangements.csv" using 0:1 ls 2 title "Shared Arrangements" with lines, \
+     "./times_interests.csv" using 0:1 ls 3 title "Shared Everything" with lines, \
+     "./times_multitenant.csv" using 0:1 ls 4 title "Multi-Tenant" with lines

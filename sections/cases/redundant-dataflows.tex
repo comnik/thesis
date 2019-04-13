@@ -9,37 +9,36 @@ worst-case optimal join algorithms make much of 3DF's design
 possible. We have arrived at a system that provides robust,
 predictable performance within a multi-user environment, at high
 throughputs, with low latencies, and with bounded memory use. In doing
-so, we have overcorrected a bit, at the expense of redundancies in the
-overall dataflow. Apart from the attribute indices, we have foregone
-almost all opportunities for sharing state between dataflows.
+so, we have somewhat overcorrected, at the expense of redundancies in
+the overall dataflow. Apart from the attribute indices, we have
+foregone almost all opportunities for sharing resources between
+dataflows.
 
-Query dataflows consume a number of ressources over their entire
+Query dataflows consume a number of resources over their entire
 lifetime, which might be measured in minutes or hours for interactive
 sessions, but in days, weeks, months, or even years for dataflows
-between backend services.
+between backend services. The primary resource consumed by a dataflow
+element is of course space to (potentially) buffer and index its
+inputs. We refer to this as \emph{operator state}. To a lesser extent
+dataflow elements themselves incur some marginal costs both in space,
+for maintaining a representation of the dataflow graph, and in time,
+because additional operators need to receive and process progress
+information.
 
-[@TODO overheads of dataflow elements]
-
-Naturally, this limits the number of clients we can support
-concurrently.
+Naturally, sharing neither indexed operator state, nor dataflow
+elements, limits the number of clients we can support concurrently.
 
 \subsubsection{Example}
-
-[@TODO analyst queries]
 
 Consider again a scenario of many analysts concurrently interacting
 with the same data streams. Many of them will be interested in a
 common subset of data, e.g. users that are currently active in Europe,
 but will impose some additional constraints depending on their
-respective tasks at hand.
-
-\texttt{@TODO example: shared access policy?}
-
-A more concrete example might be the comment stream from previous
-chapters:
+respective tasks at hand. A more concrete example might be the comment
+stream from previous chapters:
 
 \begin{verbatim}
-[(comment ?comment ?place ?person ?ip ?content \ldots{})
+[(comment ?comment ?place ?person ?ip ?content ...)
 
  [?comment :comment/creation-date ?creationDate]
  [?comment :comment/creator ?person]
@@ -54,25 +53,51 @@ specific location. For an analyst interested in comments originating
 in Zurich, a query might look like the following:
 
 \begin{verbatim}
-[:find \ldots{}
+[:find ...
  :where
- (comment ?comment ?place \ldots{})
+ (comment ?comment ?place ...)
  [?place :place/name "Zurich"]]
 \end{verbatim}
 
-Given $n$ analysts, we can service their queries in three different
-ways.
+A similar situation naturally arises when implementing data access
+policies, which forces clients to only work with certain subsets of
+all available data. Datalog makes it possible to succintly express
+even complex, property-based policies. A set of rules describing a
+simplified, role-based access control scheme might look like:
+
+\begin{verbatim}
+[:find ?document ?content
+ :where
+ (access? <client-id> ?document)
+ [?document :document/content ?content]]
+
+[[(access? ?client ?document)
+  [?client :client/role ?role]
+  (role-access? ?role ?document)]
+
+ [(role-access? ?role ?document)
+  [?role :role/access? ?document]]
+ 
+ [(role-access? ?role ?document)
+  [?child :role/super ?role]
+  (role-access? ?child ?document)]]
+\end{verbatim}
+
+Intuitively we might point out that recursively re-deriving the
+\texttt{role-access?} relation for each client seems wasteful. In
+general, given $n$ analysts, we can service their queries in three
+different ways.
 
 \subsubsection{Shared Nothing}
 
 We create $n$ indepedent dataflows, sharing only the base
 relations. This gives us the greatest freedom to pick the best
 possible plans for each individual analyst, for example making use of
-the worst-case optimal join framework introduced in chapter
-\texttt{@TODO}.
+the worst-case optimal join framework covered in chapters
+\ref{technique-wco} and \ref{case-join-ordering}.
 
 On the other hand, all of those $n$ dataflows will perform a lot of
-redundant work and incur significant overheads, essentially derivingq
+redundant work and incur significant overheads, essentially deriving
 $n$ copies of the \texttt{comment} relation. Dataflow elements are not
 free either, and will incur scheduling and other bookkeeping
 overheads.
@@ -145,9 +170,9 @@ can model multi-tenancy within the data plane itself. Recall the query
 from earlier:
 
 \begin{verbatim}
-[:find \ldots{}
+[:find ...
  :where
- (comment ?comment ?place \ldots{})
+ (comment ?comment ?place ...)
  [?place :place/name "Zurich"]]
 \end{verbatim}
 
@@ -156,9 +181,9 @@ filter by a parameter input, drawn from an additional parameter
 attribute.
 
 \begin{verbatim}
-[:find \ldots{}
+[:find ...
  :where
- (comment ?comment ?place \ldots{})
+ (comment ?comment ?place ...)
  [?place :place/name ?name-filter]
  [\_ :parameter/place-name ?name-filter]]
 \end{verbatim}

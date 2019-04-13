@@ -122,10 +122,10 @@ fit. We created two new 3DF sources, \texttt{TimelyLogging} and
 \texttt{DifferentialLogging}.
 
 The \texttt{TimelyLogging} source allows clients to source only the
-subset of logging attributes that they are interested in (c.f. listing
-[@TODO below]). It also performs some pre-processing on the raw
-logging streams, converting hierarchical scope addresses into the
-corresponding edges of the dataflow graph.
+subset of logging attributes that they are interested in. It also
+performs some pre-processing on the raw logging streams, converting
+hierarchical scope addresses into the corresponding edges of the
+dataflow graph.
 
 \begin{lstlisting}[language=json][h!]
 {:TimelyLogging

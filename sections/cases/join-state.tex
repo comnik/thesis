@@ -4,8 +4,8 @@
 
 \subsubsection{Problem}
 
-Recall from \ref{3df-data-model} our opinions on data modeling needs
-of tomorrows information systems. In this world of normalized,
+Recall from chapter \ref{3df-data-model} our opinions on data modeling
+needs of tomorrows information systems. In this world of normalized,
 attribute-oriented data, relational joins cannot be treated as scary,
 exceptional operations, but rather as commonplace, everyday
 tools. Even the most basic aggregation of data, obtaining a consistent
@@ -16,7 +16,7 @@ How to maintain robust, high-arity joins for many concurrent users
 with low-latency and high-throughput is perhaps the defining problem
 of the 3DF architecture.
 
-As discussed in \ref{known-techniques}, two approaches for
+As discussed in chapter \ref{known-techniques}, two approaches for
 implementing joins of arbitrary arity avail themselves to us. This
 section will focus on the traditional one, where n-way joins are
 implemented as consecutive two-way joins (\emph{join stages}).
@@ -26,8 +26,8 @@ until matching inputs from the other side arrive (and vice versa) or
 the epoch closes. Systems like Kafka Streams enforce sliding,
 fixed-size window semantics (\cite{kafkadocs}) to bound the state
 maintained by a join operator. Differential Dataflow maintains such
-state in arrangements (c.f. \ref{background-differential}) that are
-compacted as the computation makes progress (i.e. epochs are
+state in arrangements (c.f. chapter \ref{background-differential})
+that are compacted as the computation makes progress (i.e. epochs are
 completed). Differential's \texttt{join} operator will therefore
 arrange both of its input collections, should they not already be
 available in arranged form.
@@ -41,8 +41,9 @@ arranged form.
 Depending on the selectivity of the various join stages, this can lead
 to significant space overheads. Worse, in our continous query
 processing setting, erroneously estimating intermediate cardinalities
-(a very common problem, as we saw in c.f. \ref{known-techniques}) will
-therefore cause disastrous complexity in both time \emph{and} space.
+(a very common problem, as we saw in chapter \ref{known-techniques})
+will therefore cause disastrous complexity in both time \emph{and}
+space.
 
 \subsubsection{Example}
 
@@ -92,12 +93,11 @@ becomes crucially important.
 
 \subsubsection{Remedy}
 
-[@TODO cite delta query sources]
-
-Adapting techniques from the field of incremental view maintenance, we
-can break up our queries along their potential sources of change. In
-our example, any of the comment attributes may change arbitrarily,
-which means we will end up with six separate queries.
+Adapting techniques from the field of incremental view maintenance
+(\cite{gupta1993maintaining}, \cite{blakeley1986efficiently}), we can
+break up our queries along their potential sources of change. In our
+example, any of the comment attributes may change arbitrarily, which
+means we will end up with six separate queries.
 
 [@TODO delta plan illustration]
 
@@ -148,7 +148,7 @@ interested in older epochs anymore) are merged together and
 compacted. The latter potentially reduces the number of tuples stored
 in the system. From those events, the number of tuples across all
 arrangements is easily inferred. Implementation details of the logging
-instrumentation is covered in \ref{logging}.
+instrumentation is covered in chapter \ref{logging}.
 
 We then used the LDBC (\cite{erling2015ldbc}) data generators to
 generate a dataset simulating the social network activity of 1000

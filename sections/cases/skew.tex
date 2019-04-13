@@ -1,0 +1,67 @@
+\documentclass[../catalog.tex]{subfiles}
+
+\begin{document}
+
+\subsubsection{Problem}
+
+Throughout this work we have seen the many challenges of implementing
+complex, high-arity joins. At the same time, we have also seen their
+tremendous power as enablers for flexible data modeling, as well as
+foundation on which the entire expressive range of a language like
+Datalog can be implemented efficently.
+
+We have also touched on [@TODO] features such as user-controlled query
+parameters and queries across a specific range of time, which treat
+control inputs and configuration parameters as data and which are then
+in turn efficently implemented via the join primitives.
+
+In this scenario we will focus on a critical property of distributed
+joins in general, and of the latter "control joins" in particular:
+skew.
+
+Skew problems arise in distributed, data-parallel processing, whenever
+inputs are either not distributed evenly across homogeneous workers,
+or not distributed according to the varying capacities of
+heterogeneous workers.
+
+For stateless operators such as \texttt{map} or \texttt{filter}, we
+can always randomly shuffle the data amongst workers, to ensure a
+uniform distribution. This is not possible for operators that depend
+on state for each key. In particular, an operator such as
+\texttt{join} must be certain it will see all inputs for a key $k$ on
+a specific worker, if it has seen any input for $k$ on that
+worker. Otherwise we might miss results.
+
+\subsection{Examples}
+
+@TODO MatchAV, MatchEA, Filter vs Lookup vs Join
+
+@TODO control collection
+
+@TODO general trade-off with arrangements
+
+Categorical data is the cornerstone of modern data science. Predictive
+models both consume and serve as natural input sources of
+\emph{features} such as \texttt{:transaction/fraudulent?} or
+\texttt{:person/bot?}.
+
+While features can be modelled as boolean attributes, useful features
+should be highly discriminating and thus apply to very small subsets
+of entities with little overlap. Explicitely storing false values to
+indicate absence of a feature is therefore a very storage-inefficient
+approach. For this reason, a value of true is often meant to indicate
+the presence of the feature on the given entity, while any entity not
+contained in the relation is assumed to not posses the feature.
+
+Modeling categorical features via binary relations in this way leads
+to an extremely skewed distribution of values. In particular a reverse
+index on any such attribute (as required by the worst-case optimal
+join algorithm) would be entirely stored on a single worker.
+
+\subsection{Remedies}
+
+\cite{ammar2018distributed} propose a skew resilient version of their
+\emph{Delta-BiGJoin} algorithm. Its implementation and adaption to 3DF
+are beyond the scope of this work.
+
+\end{document}

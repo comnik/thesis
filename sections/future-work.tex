@@ -64,11 +64,17 @@ skews any longer.
 At its heart (and mostly thanks to Differential's incremental
 computation model), 3DF uses a semi-naive, bottom-up evaluation
 strategy. Over the past decades, many more sophisticated Datalog
-evaluation strategies have been developed
-(e.g. \cite{tekle2011more}). More work is needed to understand how
-strategies such as the magic-set transform or subsumptive tabling
-translate into the incremental dataflow model, and to what extent they
-overlap with worst-case optimal join evaluation.
+evaluation strategies have been developed (e.g. \cite{tekle2011more}).
+
+Many of these strategies hinge on finding clause orders, or
+introducing additional clauses, s.t. the resulting sequence of clauses
+is semantically equivalent to the input clauses, but materialize fewer
+results.
+
+More work is needed to understand how strategies such as the magic-set
+transform or subsumptive tabling translate into the incremental
+dataflow model, and to what extent they overlap with worst-case
+optimal join evaluation.
 
 \subsection{Set vs Multiset Semantics}
 
