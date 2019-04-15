@@ -13,6 +13,11 @@ set style line 6 lc rgb "#BC3409" lt 1 lw 1 pt 2 ps 1
 set xlabel "Completion Time (ms)"
 set ylabel "Percentile"
 set logscale x 10
+set logscale y 10
+set format x "10^{%L}"
+set format y "10^{%L}"
+
+set key inside left bottom Left reverse
 
 set output "out/all_cdfs.pdf"
 
