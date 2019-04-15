@@ -70,8 +70,7 @@ queries:
   \item \textbf{Best-Case} Queries across uncorrelated, uniformly
     distributed columns. Their hypergraph representation is
     cycle-free, and the assumptions of traditional cardinality
-    estimatino hold. These are best-case queries and as such, rare in
-    practice.
+    estimation hold. These are best-case queries.
 
     Examples would be star-joins on uncorrelated columns, where each
     column holds at most a fixed number of values for each
@@ -82,34 +81,60 @@ queries:
 
 \subsubsection{Remedy}
 
-We covered recent advances in the area of worst-case optimal join
-processing that introduce n-way join algorithms with improved
-asymptotic complexity for queries in the worst-case class. These
-algorithms distinguish themselves from traditional approaches, by
-estimating cardinalities for individual tuples. For average- and
-best-case queries we thus expect a worst-case optimal approach to
-match or outperform a heuristics-based approach in terms of the number
-of tuples processed, but potentially with significant constant
-overheads.
+We covered recent advances in the area of worst-case optimal
+(\emph{wco}) join processing that describe n-way join algorithms with
+improved asymptotic complexity for queries in the worst-case
+class. These algorithms distinguish themselves from traditional
+approaches, by checking cardinalities for individual tuples. They can
+thus ensure that any extension of a set of prefixes to a new variable
+will look at the smallest number of tuples, even in the face of
+correlated or non-uniformly distributed relations.
 
-Our implementation of a worst-case optimal dataflow join operator is
-detailed in \autoref{impl-hector}.
+For many average- and best-case queries however, sub-optimal join
+orderings have an adverse effect on performance that, although not
+asymptotically worse, is significant in practice. In these cases, the
+variable order chosen by a wco join algorithm matters much more.
+
+For example, given prefixes \texttt{[?a ?b]} and relations \texttt{[?a
+    :r1 ?c], [?a :r2 ?d]}, we might choose to first extend to
+\texttt{?c} via \texttt{:r1}, or instead to \texttt{?d} via
+\texttt{:r2}. Choosing one over the other has no bearing on the
+asymptotic result set bound. Still, for non-uniformly distributed
+relations, some prefixes might produce many more matches in
+\texttt{:r1}, whereas for others it would be the other way
+around. Picking the optimal variable order is thus again a
+data-dependent cardinality estimation problem, if one with a better
+safety net.
+
+Further, wco algorithms perform significantly more work per tuple,
+than traditional two-way joins. For example, at each extension stage,
+each tuple requires multiple index lookups in order to determine the
+optimal extension strategy.
+
+We thus expect a wco approach to significantly improve robustness on
+queries in the worst-case class, but to adversly affect performance on
+average- and best-case queries, as compared to traditional,
+heuristics-based approaches.
+
+Our particular implementation of a worst-case optimal dataflow join
+operator is detailed in \autoref{impl-hector}.
 
 \subsubsection{Evaluation}
 
-First, we want to examine whether a worst-case optimal join strategy
-does lead to more predictable latencies, \emph{irrespective of the
-  clause order provided by the user}. For this we will consider the
-triangle query \texttt{[?a :edge ?b] [?b :edge ?c] [?a :edge ?c]} on
-the livejournal graph. The graph contains 68 million edges. We
-introduce edges in node order, feeding them into a single
-attribute. The i-th round of input is therefore that in which all
-edges starting at node i are ingested. We use a single worker, running
-on a single core of a 2.7 GHz Intel Core i5, with 16GB RAM available.
+First we want to examine whether a worst-case optimal join strategy
+does lead to more predictable latencies on cyclic queries,
+\emph{irrespective of the clause order provided by the user}. For this
+we will consider the triangle query \texttt{[?a :edge ?b] [?b :edge
+    ?c] [?a :edge ?c]} on the livejournal graph. The graph contains 68
+million edges. We introduce edges in node order, feeding them into a
+single attribute. The i-th round of input is therefore that in which
+all edges starting at node i are ingested. We use a single worker,
+running on a single core of a 2.7 GHz Intel Core i5, with 16GB RAM
+available.
 
 We run this setup for both strategies — consecutive binary joins
 (\emph{JoinJoinJoin}) and worst-case optimal (\emph{Hector} — and for
-three different input clause orders each, measuring completion time
+three different input clause orderings each, measuring completion time
 for each round of inputs. The resulting latency distributions are
 shown in figure \ref{fig:triangle-cdfs}.
 
