@@ -174,4 +174,48 @@ time.
   \label{fig:triangle-cdfs-extended}
 \end{figure}
 
+Next we evaluate Hector on the \texttt{BI/read/2} query from the LDBC
+dataset. We used the LDBC data generator to generate a dataset
+simulating the activity of 10,000 users in a social network. We
+registered each query plan and then ingested the data in small
+batches, measuring the completion time for each input epoch.
+
+\begin{verbatim}
+;; BI/read/2
+
+[?person :person/gender ?gener]
+[?person :person/birthday" ?bday]
+[?person :person/place" ?city]
+[?city "place/part-of" ?country]
+[?country "place/name" ?country-name]
+[?post "post/creator" ?person]
+[?post "post/tag" ?tag]
+[?tag "tag/name" ?tag-name]
+\end{verbatim}
+
+\begin{verbatim}
+;; BI/read/2 (bad order)
+
+[?post "post/creator" ?person]
+[?post "post/tag" ?tag]
+[?tag "tag/name" ?tag-name]
+[?person "person/gender" ?gender]
+[?person "person/birthday" ?bday]
+[?person "person/place" ?city]
+[?city "place/part-of" ?country]
+[?country "place/name" ?country-name]
+\end{verbatim}
+
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{results/bi_read_2/out/all_cdfs}
+  \caption{BI/read/2 - Latency CCDFs}
+  \label{fig:average-cdfs}
+\end{figure}
+
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{results/best_case/out/all_cdfs}
+  \caption{Best Case - Latency CCDFs}
+  \label{fig:best-case-cdfs}
+\end{figure}
+
 \end{document}

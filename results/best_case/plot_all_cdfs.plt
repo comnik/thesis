@@ -22,9 +22,7 @@ set key inside left bottom Left reverse
 set output "out/all_cdfs.pdf"
 
 stats "join.dat" using 3;
-stats "join_bad_order.dat" using 3;
 stats "hector.dat" using 3; 
 
-plot "join.dat" using 1:(1-$3/STATS_max) ls 1 with lines title "Join I",\
-     "join_bad_order.dat" using 1:(1-$3/STATS_max) ls 2 with lines title "Join II",\
+plot "join.dat" using 1:(1-$3/STATS_max) ls 3 with lines title "Join I",\
      "hector.dat" using 1:(1-$3/STATS_max) ls 4 with lines title "Hector",\
