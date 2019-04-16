@@ -156,55 +156,31 @@ disastrous join orderings by one to many orders of magnitude. The best
 performing JoinJoinJoin order can outperform Hector, but with a
 similar long-tail and twice the maximum latency.
 
-Figure \ref{fig:triangle-cdfs-extended} shows that these observations
-remain valid when measuring thrice the number of rounds, as well as
-when increasing the batch size to introduce one thousand nodes at a
-time.
+These observations remain valid when measuring thrice the number of
+rounds (\autoref{fig:triangle-cdfs-extended}), as well as when
+increasing the batch size to introduce one thousand nodes at a time
+(\autoref{fig:triangle-cdfs-batch}).
 
 \begin{figure}[h!]
   \begin{subfigure}{.5\textwidth}
     \includegraphics[width=1.0\linewidth]{results/triangles/out/extended_cdf}
     \caption{More Rounds}
+    \label{fig:triangle-cdfs-extended}
   \end{subfigure}
   \begin{subfigure}{.5\textwidth}
     \includegraphics[width=1.0\linewidth]{results/triangles/out/batch_cdf}
     \caption{Batch Size 1000}
+    \label{fig:triangle-cdfs-batch}
   \end{subfigure}
-
-  \label{fig:triangle-cdfs-extended}
 \end{figure}
 
 Next we evaluate Hector on the \texttt{BI/read/2} query from the LDBC
 dataset. We used the LDBC data generator to generate a dataset
 simulating the activity of 10,000 users in a social network. We
 registered each query plan and then ingested the data in small
-batches, measuring the completion time for each input epoch.
-
-\begin{verbatim}
-;; BI/read/2
-
-[?person :person/gender ?gener]
-[?person :person/birthday" ?bday]
-[?person :person/place" ?city]
-[?city "place/part-of" ?country]
-[?country "place/name" ?country-name]
-[?post "post/creator" ?person]
-[?post "post/tag" ?tag]
-[?tag "tag/name" ?tag-name]
-\end{verbatim}
-
-\begin{verbatim}
-;; BI/read/2 (bad order)
-
-[?post "post/creator" ?person]
-[?post "post/tag" ?tag]
-[?tag "tag/name" ?tag-name]
-[?person "person/gender" ?gender]
-[?person "person/birthday" ?bday]
-[?person "person/place" ?city]
-[?city "place/part-of" ?country]
-[?country "place/name" ?country-name]
-\end{verbatim}
+batches, measuring the completion time for each input
+epoch. \autoref{fig:average-cdfs} shows the resulting latency
+distributions for two different join-at-a-time orders and Hector.
 
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{results/bi_read_2/out/all_cdfs}
@@ -212,9 +188,16 @@ batches, measuring the completion time for each input epoch.
   \label{fig:average-cdfs}
 \end{figure}
 
+Finally we evaluated a simple star-join of posts across four
+one-to-one attributes (\texttt{:post/ip, :post/browser,
+  :post/language, :post/content}). Each post in the dataset has
+exactly one value assigned for each of these
+attributes. \autoref{fig:best-case-cdfs} shows the resulting latency
+distributions.
+
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{results/best_case/out/all_cdfs}
-  \caption{Best Case - Latency CCDFs}
+  \caption{Best-Case Star-Join - Latency CCDFs}
   \label{fig:best-case-cdfs}
 \end{figure}
 
