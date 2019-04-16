@@ -467,64 +467,46 @@ work, but treated extensively in \cite{abo2016faq}.
 All delta pipelines are executed concurrently at the dataflow
 level. This can lead to inconsistencies as we might derive the same
 output change on multiple pipelines, when sources change
-concurrently. Assume for example we have a graph containing the
-triangle \texttt{[100 200 300]}, formed by the edges \texttt{(100
-  200), (200 300), and (100 300)}. A single change \texttt{((100 200)
-  -1)} to the \texttt{:edge} attribute will cause all three pipelines
-to derive the same retraction \texttt{([100 200 300] -1)}.
+concurrently.
 
-To prevent this, we must impose a logical order on the computation. In
-particular, we must ensure that the retraction of \texttt{@TODO}
+Assume for example we have a graph, initially containing only a single
+edge $(100,300)$, and two delta pipelines:
 
-Delta pipelines are therefore created within a new, nested scope
-carrying the \texttt{AltNeu} timestamp type. Upon use, attributes such
-as \texttt{:edge} are imported and wrapped with the corresponding
-\texttt{AltNeu} timestamp. We cache imported arrangements by attribute
-name, to prevent redundant imports.
+\begin{verbatim}
+(I) d(a,b) -> (b,c) -> (a,c)
+(II) d(b,c) -> (a,b) -> (a,c)
+\end{verbatim}
 
-\subsubsection{TODO}
+At some logical time $t$ we then input two new edges
+$((100,200),t,+1)$ and $((200,300),t,+1)$. Crucially, both inputs are
+then logically available in all relations at time $t$. Along pipeline
+(I), the input edge $(100,200)$ will therefore match the indexed edge
+$(200,300)$ and thus cause the derivation of a single output change
+$((100,200,300),t,+1)$. Correspondingly, along pipeline (II) the input
+edge $(200,300)$ will match the indexed edge $(100,200)$, leading to a
+now redundant output change $((100,200,300),t,+1)$.
 
-@TODO: more  implementation related 
+To prevent this, we must impose an arbitrary logical order on the
+computation. In particular, we must ensure that input changes are not
+logically available at all relations simultaneously (even though
+physically, they might already be indexed). For this we fix an
+arbitrary sequential order, e.g. $(a,b),(b,c),(a,c)$.
 
-First, we must indicate to 3DF, that the
-\texttt{:parameter/place-name} attribute adheres to special
-semantics. In particular, we must enforce, that clients may only add
-or retract values to it, they can not control the keys. Where usually
-a transaction would take the form \texttt{[:db/add <eid>
-    :parameter/place-name <value>]}, 3DF will only allow
-\texttt{[:db/add :parameter/place-name <value>]}.
+Delta pipelines are therefore created within a new, nested scope using
+a modified, lexicographic timestamp type. Timestamps $t$ along each
+pipeline are extended to $(t,a \in {0,1})$, where $a$ is a boolean
+indicating the relative position of the source binding and the
+extending relation. These extended timestamps are ordered
+lexicographically, ensuring in particular that $(t,0) <
+(t,1)$. Attribute arrangements are imported and wrapped with their
+corresponding timestamps. We cache imported arrangements to prevent
+redundant imports.
 
-Rather, for all updates from a specific client, we will automatically
-associate that client's connection token as the key. This way, we can
-distinguish between parameters from different client. We make use of
-this information to route results correctly to their respective
-clients.
-
-We think that expressing multi-tenancy within the data plane is a very
-powerful implementation strategy for dataflow systems. Still we might
-think about different ways to accomplish the same goal. Recall that we
-kept track of what parameters were associated with which client via
-the keys of a parameter relation.
-
-This approach has drawbacks when overlap between parameters from
-different tenants is high.
-
-In such cases we could make use of the fact, that sets of client
-tokens form a commutative monoid under set union. Any such monoid can
-take the place of Differential's multiplicities (and benefit from
-efficient in-place updates).
-
-@TODO
-If we want to re-use delta query pipelines we might have to generalize
-~AltNeu~ to be an integer, specifying the position in the
-chain. Otherwise the likelihood of compatible re-use across pipelines
-is negligible.
-
-@TODO iterated hector
-There is a remaining redundancy in Hector, in that whenever multiple
-Attribute bindings refer to the same attribute, we would be
-constructing more than one delta pipeline. In a way, a single change
-to the supporting attribute leads to multiple changes in the bindings.
+Revisiting the scenario from above, the input edges would now be
+logically available in relation $(b,c)$ on pipeline (II), but not on
+pipeline (I), because $(b,c)$ appears after $(a,b)$ in the relation
+order. Accordingly, only pipeline (II) would now derive the correct
+output change.
 
 \subsection{Multi-tenant Routing}
 
