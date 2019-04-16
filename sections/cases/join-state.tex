@@ -45,6 +45,12 @@ processing setting, erroneously estimating intermediate cardinalities
 will therefore cause disastrous complexity in both time \emph{and}
 space.
 
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{diagrams/join-at-a-time}
+  \caption{Join At A Time}
+  \label{fig:join-at-a-time-plan}
+\end{figure}
+
 \subsubsection{Example}
 
 Intermediate join state becomes especially apparent in star-joins
@@ -73,8 +79,6 @@ two-way joins would lead to roughly a threefold increase in the number
 of tuples maintained by this dataflow, \emph{independent of the chosen
   join order}.
 
-[@TODO Joinjoinjoin plan illustration]
-
 We encounter an even more pronounced version of this problem, when
 looking at sub-graph queries, such as the triangle search:
 
@@ -99,7 +103,11 @@ break up our queries along their potential sources of change. In our
 example, any of the comment attributes may change arbitrarily, which
 means we will end up with six separate queries.
 
-[@TODO delta plan illustration]
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{diagrams/delta-queries}
+  \caption{Delta Queries}
+  \label{fig:delta-query-plan}
+\end{figure}
 
 What is different about the resulting plans, is that, given an indexed
 representation of all attributes, they can be implemented in an
