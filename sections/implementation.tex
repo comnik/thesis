@@ -154,7 +154,7 @@ that haven't been shut down.
  (not [?x :timely.event.operates/shutdown? true])]
 \end{verbatim}
 
-For making accurate measurements it also became neccessary to
+For making accurate measurements it also became necessary to
 side-step 3DFs default behaviour of forwarding results directly back
 to clients, as doing so would introduce serialization and network
 latency.
@@ -462,7 +462,7 @@ be equally valid to extend first to \texttt{?c} and then to
 Finding the optimal variable ordering is beyond the scope of this
 work, but treated extensively in \cite{abo2016faq}.
 
-\subsubsection{Lexicographic Timestamps}
+\subsubsection{Lexicographic Timestamps} \label{impl-altneu}
 
 All delta pipelines are executed concurrently at the dataflow
 level. This can lead to inconsistencies as we might derive the same

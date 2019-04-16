@@ -130,9 +130,8 @@ Another subtle issue, identified in \cite{dogsdogsdogs}, arises when
 implementing delta queries within the dataflow model. Simultaneous
 updates to multiple of the participating attributes can lead to
 redundant derivations of the same result tuple. We must be careful to
-impose a logical order on the execution.
-
-[@TODO describe AltNeu]
+impose a logical order on the execution. This implementation detail is
+described later in \autoref{impl-altneu}.
 
 \subsubsection{Evaluation}
 
