@@ -155,14 +155,12 @@ interested in older epochs anymore) are merged together and
 compacted. The latter potentially reduces the number of tuples stored
 in the system. From those events, the number of tuples across all
 arrangements is easily inferred. Implementation details of the logging
-instrumentation is covered in chapter \ref{logging}.
+instrumentation are covered in \autoref{logging}.
 
-We then used the LDBC (\cite{erling2015ldbc}) data generators to
-generate a dataset simulating the social network activity of 1000
-persons. On this we ran subsets of the above conjunctive query,
-increasing the number of clauses participating in the join.
-
-The dataset contains roughly $600,000$ comments.
+We used the LDBC (\cite{erling2015ldbc}) data generators to generate a
+dataset simulating the social network activity of ~9,900 persons. On
+this we ran subsets of the above conjunctive query, increasing the
+number of clauses participating in the join.
 
 [@TODO explain constant overhead or fix it...]
 
