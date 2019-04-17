@@ -2,7 +2,7 @@
 
 \begin{document}
 
-\subsubsection{Problem}
+\subsection{Problem}
 
 Recall from chapter \ref{3df-data-model} our opinions on data modeling
 needs of tomorrows information systems. In this world of normalized,
@@ -51,7 +51,7 @@ space.
   \label{fig:join-at-a-time-plan}
 \end{figure}
 
-\subsubsection{Example}
+\subsection{Example}
 
 Intermediate join state becomes especially apparent in star-joins
 along highly correlated columns, e.g. one-to-one relations with very
@@ -95,7 +95,7 @@ few celebrities might have in-degrees in the millions, whereas most
 people are in mutual friendship with a few hundreds) and join order
 becomes crucially important.
 
-\subsubsection{Remedy}
+\subsection{Remedy}
 
 Adapting techniques from the field of incremental view maintenance
 (\cite{gupta1993maintaining}, \cite{blakeley1986efficiently}), we can
@@ -141,7 +141,7 @@ redundant derivations of the same result tuple. We must be careful to
 impose a logical order on the execution. This implementation detail is
 described later in \autoref{impl-altneu}.
 
-\subsubsection{Evaluation}
+\subsection{Evaluation}
 
 In order to evaluate the effect of implementing n-way joins with delta
 queries, we need to measure the number of tuples maintained across all
@@ -188,7 +188,7 @@ remains constant when using delta queries.
 
 [@TODO show dataflows and dataflow size]
 
-\subsubsection{Conclusions}
+\subsection{Conclusions}
 
 Delta queries allow us to trade dataflow size and a bit of
 implementation complexity (due to the lexicograpic timestamps) in

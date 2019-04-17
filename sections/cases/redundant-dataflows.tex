@@ -2,7 +2,7 @@
 
 \begin{document}
 
-\subsubsection{Problem}
+\subsection{Problem}
 
 Throughout the previous chapters we have seen how to implement
 high-arity joins in constant memory and without falling back to
@@ -29,7 +29,7 @@ information.
 Naturally, sharing neither indexed operator state, nor dataflow
 elements, limits the number of clients we can support concurrently.
 
-\subsubsection{Example}
+\subsection{Example}
 
 Consider again a scenario of many analysts concurrently interacting
 with the same data streams. Many of them will be interested in a
@@ -87,7 +87,7 @@ simplified, role-based access control scheme might look like:
 Intuitively we might point out that recursively re-deriving the
 \texttt{role-access?} relation for each client seems wasteful.
 
-\subsubsection{Sharing Dataflows}
+\subsection{Sharing Dataflows}
 
 In general, given $n$ analysts, we can service their queries in a few
 different ways.
@@ -149,7 +149,7 @@ Consistent with our robustness goal, we therefore want to err on the
 side of caution at the expense of reduced best-case
 scalability.
 
-\subsubsection{Multi-Tenant Dataflows}
+\subsection{Multi-Tenant Dataflows}
 
 In some situations, an additional implementation strategy might be
 available to us: we can model multi-tenancy within the data plane
@@ -203,7 +203,7 @@ against the table of constants \cite{chen2000niagaracq}.
 It is also reminiscent of more recent work on partially-stateful,
 multi-tenant dataflow systems by \cite{gjengset2018noria}.
 
-\subsubsection{Identifying Opportunities for Re-use}
+\subsection{Identifying Opportunities for Re-use}
 
 Of course, re-use via parameterized, multi-tenant dataflows is not
 possible if users request different conjunctions. Finding common
@@ -222,7 +222,7 @@ e.g. by creating separate rules for the different branches of an
 stages that do not affect the underlying joins, such as projections,
 transformations, and aggregations.
 
-\subsubsection{Re-Use And Worst-Case Optimal Dataflow Joins}
+\subsection{Re-Use And Worst-Case Optimal Dataflow Joins}
 
 The worst-case optimal join operator outlined in chapter
 \ref{case-join-ordering} warrants special consideration
@@ -246,7 +246,7 @@ the same indexing structures used for base relations. Within the
 dataflow model, index arrangements do not need to distinguish whether
 they are being fed by external inputs or from a derived relation.
 
-\subsubsection{Other Strategies}
+\subsection{Other Strategies}
 
 Again from \cite{hirzel2014catalog} we learn that
 
@@ -263,7 +263,7 @@ relational model implemented by 3DF and Differential Dataflow. The
 question of whether the two approaches can be combined in a sensible
 way is left for future inquiry.
 
-\subsubsection{Evaluation}
+\subsection{Evaluation}
 
 We evaluated the performance of different re-use strategies with the
 following scenario. A constant load of 500 tuples per second was
