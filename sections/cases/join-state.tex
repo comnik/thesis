@@ -2,17 +2,13 @@
 
 \begin{document}
 
-\subsection{Problem}
-
-Recall from \autoref{3df-data-model} our opinions on the data modeling
-needs of tomorrows information systems. In this world of normalized,
-attribute-oriented data, relational joins cannot be treated as scary,
-exceptional operations, but rather as commonplace, everyday
-tools. Even the most basic aggregation of data, obtaining a consistent
-view of domain entities over time, requires joining potentially many
-attributes. Robustly maintaining high-arity joins for many concurrent
-users with low-latency and high-throughput is perhaps the defining
-problem of the 3DF architecture.
+Within an attribute-oriented data model, relational joins cannot be
+treated as scary, exceptional operations, but must rather be viewed as
+commonplace, everyday tools. Even the most basic aggregation of data —
+obtaining a consistent view of domain entities over time — requires
+joining potentially many attributes. Robustly maintaining high-arity
+joins for many concurrent users with low-latency and high-throughput
+is therefore the defining problem of the 3DF architecture.
 
 Join operators must maintain state to buffer inputs on either side,
 until matching inputs from the other side arrive (and vice versa) or
@@ -36,13 +32,21 @@ arranged form. This is illustrated in
   \includegraphics[width=1.0\linewidth]{diagrams/join-at-a-time}
   \caption{Join At A Time}
   \label{fig:join-at-a-time-plan}
+
+  \medskip
+  \small
+
+  An exemplary three-way joiin implemented via a join-at-a-time
+  plan. Base relations are in green and are shared across all
+  queries. Arrangements in red hold intermediate join state, are
+  created on-the-fly, and not shared with other dataflows.
 \end{figure}
 
 Depending on the selectivity of the various join stages, this can lead
 to significant space overheads. Worse, in our continuous query
 processing setting, erroneously estimating intermediate cardinalities
-(a very common problem, as we saw in \autoref{known-techniques}) will
-therefore cause disastrous complexity in both time \emph{and} space.
+will therefore cause disastrous complexity in both time \emph{and}
+space.
 
 \subsection{Example}
 
@@ -64,14 +68,14 @@ the following query.
  [?person :person/browser _]]
 \end{verbatim}
 
-This query implies a seven-way join on all person ids, aggregating
+This query requires a seven-way join on all person ids, aggregating
 seven different person attributes back into an aggregate view. Within
-the LDBC dataset, every person carries all six of these
+the LDBC dataset, every person carries all seven of these
 attributes. Therefore all relations are of the same size and map
 one-to-one from person ids to the associated values. Because of this,
-implementing this query as six consecutive two-way joins would lead to
-roughly a threefold increase in the number of tuples maintained by
-this dataflow, \emph{independent of the chosen join order}.
+implementing this query as six consecutive two-way joins leads to a
+five-fold increase in the number of tuples maintained by this
+dataflow, \emph{independent of the chosen join order}.
 
 We encounter an even more pronounced version of this problem, when
 looking at sub-graph queries, such as the triangle search:
@@ -91,34 +95,35 @@ becomes crucially important.
 
 \subsection{Remedy}
 
-Adapting techniques from the field of incremental view maintenance
-(\cite{gupta1993maintaining}, \cite{blakeley1986efficiently}), we can
-break up our queries along their potential sources of change. In our
-example, any of the comment attributes may change arbitrarily, which
-means we will end up with six separate queries.
+Adapting the incremental join view techniques from
+\cite{blakeley1986efficiently}, we can break up our queries along
+their potential sources of change
+(c.f. \autoref{fig:delta-query-plan}). In our example, any of the
+comment attributes may change arbitrarily, which means we will end up
+with six separate queries.
 
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{diagrams/delta-queries}
   \caption{Delta Queries}
   \label{fig:delta-query-plan}
+
+  \medskip
+  \small
+  
+  An exemplary three-way join implemented via delta-queries. Three
+  independent dataflows are required, each handling changes to a
+  specific base relation. These delta sources are stateless.
 \end{figure}
 
 What is different about the resulting plans, is that, given an indexed
 representation of all attributes, they can be implemented in an
 otherwise stateless manner. They do not need to maintain intermediate
-arrangements as was the case for the traditional join operator.
-
-Assuming for a second that dataflow elements are essentially free
-(they are not), this allows us to decouple the memory use of our join
-processing from the number of active queries and the complexity of the
-joins, and instead bound it in the number and size of attributes
-maintained.
-
-There is a trade-off of course, as transforming plans into delta
-queries leads to an increase in the number of dataflow elements. We
-will see in our discussion of worst-case optimal streaming joins, that
-this increase can even be quadratic in the number of relations
-involved in the join.
+arrangements as was the case for the traditional join operator. This
+allows us to decouple the memory use of our join processing from the
+number of active queries and the complexity of the joins, and instead
+bound it in the number and size of attributes maintained. There is a
+trade-off of course, as transforming plans into delta queries leads to
+an increase in the number of dataflow elements.
 
 Within any given delta flow, an attribute may only appear at a
 position where either of its sides is already bound by the tuples
@@ -137,24 +142,25 @@ described later in \autoref{impl-altneu}.
 
 \subsection{Evaluation}
 
-In order to evaluate the effect of implementing n-way joins with delta
-queries, we need to measure the number of tuples maintained across all
-active arrangements over the runtime of the system. Differential
-provides event streams containing information about the logical size
-of trace batches (the data structure backing
-arrangements). Differential also provides logging information about
-merge events, in which batches that have become indistinguishable
-(because the computation frontier has progressed and no operators are
-interested in older epochs anymore) are merged together and
-compacted. The latter potentially reduces the number of tuples stored
-in the system. From those events, the number of tuples across all
-arrangements is easily inferred. Implementation details of the logging
-instrumentation are covered in \autoref{logging}.
+We show that joins of arbitrary arity implemented with delta queries
+maintain no intermediate tuples in addition base relations, whereas
+the same joins implemented as join-at-a-time plans store intermediate
+tuples proportional to the size of the base relations and the arity of
+the join.
 
-We used the LDBC (\cite{erling2015ldbc}) data generators to generate a
-dataset simulating the social network activity of ~9,900 persons. On
-this we ran subsets of the above conjunctive query, increasing the
-number of clauses participating in the join.
+Using the LDBC (\cite{erling2015ldbc}) data generators we generated a
+dataset simulating the social network activity of ~10,000 persons. On
+this we ran subsets of the above conjunctive query on attributes of
+persons, increasing the number of clauses participating in the join
+with each run. These runs were performed with the dataset fully loaded
+into 3DF and without streaming updates.
+
+During each run we measured the number of tuples maintained across
+arrangements within the query dataflow. Differential provides event
+streams containing information about the logical size of
+arrangements. From those events, the number of tuples within an
+arrangement is easily inferred. Implementation details of the logging
+instrumentation are covered in \autoref{logging}.
 
 \begin{figure}[h!]
   \begin{subfigure}{1.0\textwidth}
@@ -176,8 +182,6 @@ that the number of arranged intermediate tuples grows with as more
 attributes participate in a consecutive two-way join, whereas it
 remains constant when using delta queries.
 
-[@TODO show dataflows and dataflow size]
-
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{results/join-state/out/all_cdfs}
   \caption{Latency CCDFS}
@@ -186,24 +190,24 @@ remains constant when using delta queries.
 
 \subsection{Conclusions}
 
-Delta queries allow us to trade dataflow size and a bit of
-implementation complexity (due to the lexicograpic timestamps) in
-return for predictable memory use. Considering only selections,
-projections, and n-way joins, the overall system uses memory
-proportional to the number and size of the base relations (i.e. the
-individual attributes). No additional operator state is required,
-independent of the number of queries and the arity of the joins within
-them.
+Delta queries allow us to trade dataflow size in return for a
+predictable memory footprint, and without affecting latencies
+significantly. Considering only selections, projections, and n-way
+joins, the overall system could be configured to use only memory
+proportional to the number and size of the base relations. No
+additional operator state is required, independent of the number of
+queries and the arity of the joins within them.
 
 Additionally, delta queries decouple space from time complexity. Using
-traditional tree joins, a sub-optimal join plan would incur both a
-heavy computational cost as well as space overheads, due to the sheer
-number of intermediate tuples materialized and maintained in
+traditional tree joins, a sub-optimal join plan incurs both a heavy
+computational cost as well as space overheads, due to the sheer number
+of intermediate tuples materialized and maintained in
 arrangements. Delta queries would still have to spend time processing
 large numbers of tuples, but without the need to index them.
 
 While we must take measures to keep the overall size of the dataflow
-manageable (as will be the topic of later chapters), we conclude that
-delta queries are a powerful approach in many common scenarios.
+manageable (as will be the topic of
+\autoref{case-redundant-dataflows}), we conclude that delta queries
+are a powerful technique in many common scenarios.
 
 \end{document}
