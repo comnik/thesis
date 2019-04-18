@@ -2,6 +2,17 @@
 
 \begin{document}
 
+3DF builds on a rather recent body of work that allows us to even
+consider the continuous maintenance of queries, whose complexity used
+to be the exclusive domain of analytical databases. In this chapter we
+describe the dataflow model of computation as a foundation for
+stream-processing systems. We then provide intuition for the concept
+of \emph{progress tracking}, and how it enables the efficient
+execution of nested, cyclic dataflows. Finally, we discuss how
+\emph{differential dataflow} extends the dataflow model to
+\emph{incremental} operators and enables recursive queries through
+independent, efficient iteration of regions of the dataflow.
+
 \subsection{Dataflow}
 
 \emph{Dataflow}, as commonly used, refers to two different but related
@@ -16,17 +27,20 @@ we often describe systems that follow this idea as \emph{reactive}.
 
 On the other hand, \emph{Dataflow programming} refers to a programming
 paradigm, in which the structure of a computation is expressed as a
-directed graph. From this graph we can infer data dependencies. This
-is a common approach to implementing dataflow coordination as
-described above.
+directed graph. This dataflow graph allows us to reason about
+(distributed) execution of the computation. In particular, it allows
+us to infer data dependencies and thus execution strategies that avoid
+re-computation of unaffected paths through the graph on new inputs. In
+the distributed setting, a fine-grained view of data dependencies
+allows us to exploit more opportunities for concurrent execution.
 
-\subsection{Timely Dataflow}
+\subsection{Progress Tracking}
 
-Timely Dataflow (\cite{timely}) is an implementation of the cyclical
-dataflow model introduced in \cite{murray2013naiad}. It is written in
-the Rust language. Timely Dataflow follows a data-parallel approach,
-meaning each worker in a Timely cluster runs the same dataflow
-computation with inputs partitioned between them.
+\emph{Timely Dataflow} (\cite{timely}) is an implementation of the
+cyclical dataflow model introduced in \cite{murray2013naiad}. It is
+written in the Rust language. Timely Dataflow follows a data-parallel
+approach, meaning each worker in a Timely cluster runs the same
+dataflow computation with inputs partitioned between them.
 
 Dataflow computations over unbounded, potentially out-of-order inputs
 must reason about times at which it is safe to produce
@@ -35,17 +49,22 @@ causes downstream inconsistencies, because forwarded results do not
 include all relevant inputs. Likewise, holding results back for too
 long will ensure correctness but might increase latencies
 unneccesarily (taken to the extreme, this end of the spectrum
-corresponds to batch processing). We will refer to this problem as
-\emph{progress tracking}.
+corresponds to batch processing).
 
-Timely is a run-time for data-parallel dataflow computations that
-coordinate via fine-grained progress tracking. 
+To solve this problem, a logical timestamp is attached to each datum
+and a partial order is imposed on them. The ordering controls
+visibility, thus detaching physical from logical availability. Taken
+together, propagating information about input epochs along the
+dataflow graph allows us to infer for which logical timestamps results
+might safely be produced.
 
-This is achieved by attaching logical timestamps to each datum and
-imposing a partial ordering on them. The ordering controls visibility
-(and thus detaches physical availability of a datum from logical
-visibility) and allows the system to infer for which logical times it
-might still receive more data.
+\emph{Progress tracking} is the problem of determining for each point
+in the dataflow the set of input timestamps that may still be received
+there. Timely Dataflow is a run-time for data-parallel dataflow
+computations that coordinate via fine-grained progress tracking.
+
+Without a co-ordination mechanism such as progress tracking, query
+results will in general not reflect a consistent logical time.
 
 \subsection{Differential Dataflow} \label{background-differential}
 
