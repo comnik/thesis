@@ -4,22 +4,15 @@
 
 \subsection{Problem}
 
-Recall from chapter \ref{3df-data-model} our opinions on data modeling
+Recall from \autoref{3df-data-model} our opinions on the data modeling
 needs of tomorrows information systems. In this world of normalized,
 attribute-oriented data, relational joins cannot be treated as scary,
 exceptional operations, but rather as commonplace, everyday
 tools. Even the most basic aggregation of data, obtaining a consistent
 view of domain entities over time, requires joining potentially many
-attributes.
-
-How to maintain robust, high-arity joins for many concurrent users
-with low-latency and high-throughput is perhaps the defining problem
-of the 3DF architecture.
-
-As discussed in chapter \ref{known-techniques}, two approaches for
-implementing joins of arbitrary arity avail themselves to us. This
-section will focus on the traditional one, where n-way joins are
-implemented as consecutive two-way joins (\emph{join stages}).
+attributes. Robustly maintaining high-arity joins for many concurrent
+users with low-latency and high-throughput is perhaps the defining
+problem of the 3DF architecture.
 
 Join operators must maintain state to buffer inputs on either side,
 until matching inputs from the other side arrive (and vice versa) or
@@ -29,27 +22,27 @@ maintained by a join operator. Differential Dataflow maintains such
 state in arrangements (c.f. chapter \ref{background-differential})
 that are compacted as the computation makes progress (i.e. epochs are
 completed). Differential's \texttt{join} operator will therefore
-arrange both of its input collections, should they not already be
-available in arranged form.
+arrange both of its input collections on the join variables, should
+they not already be available in arranged form.
 
 For higher-arity joins this becomes problematic, because the output of
 the first two-way join will be fed as an input into the second two-way
 join, and so on. At each stage along the spine (except for the very
 last), intermediate join results will therefore be maintained in
-arranged form.
-
-Depending on the selectivity of the various join stages, this can lead
-to significant space overheads. Worse, in our continous query
-processing setting, erroneously estimating intermediate cardinalities
-(a very common problem, as we saw in chapter \ref{known-techniques})
-will therefore cause disastrous complexity in both time \emph{and}
-space.
+arranged form. This is illustrated in
+\autoref{fig:join-at-a-time-plan}.
 
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{diagrams/join-at-a-time}
   \caption{Join At A Time}
   \label{fig:join-at-a-time-plan}
 \end{figure}
+
+Depending on the selectivity of the various join stages, this can lead
+to significant space overheads. Worse, in our continuous query
+processing setting, erroneously estimating intermediate cardinalities
+(a very common problem, as we saw in \autoref{known-techniques}) will
+therefore cause disastrous complexity in both time \emph{and} space.
 
 \subsection{Example}
 
@@ -60,24 +53,25 @@ very common use case in our attribute-oriented data model. Consider
 the following query.
 
 \begin{verbatim}
-[:find ?comment ?creationDate ?person ?ip ?browser ...
+[:find ?person
  :where
- [?comment :comment/creation-date ?creationDate]
- [?comment :comment/creator ?person]
- [?comment :comment/ip ?ip]
- [?comment :comment/browser ?browser]
- [?comment :comment/content ?content]
- [?comment :comment/place ?place]]
+ [?person :person/firstname _]
+ [?person :person/lastname _]
+ [?person :person/gender _]
+ [?person :person/birthday _]
+ [?person :person/creation-date _]
+ [?person :person/ip _]
+ [?person :person/browser _]]
 \end{verbatim}
 
-This query implies a six-way join on the comment ids, aggregating six
-different comment attributes back into an aggregate view. Within the
-LDBC dataset, every comment carries all six of these attributes,
-s.t. all relations are of the same size, and map one-to-one onto each
-other. Because of this, implementing this query as five consecutive
-two-way joins would lead to roughly a threefold increase in the number
-of tuples maintained by this dataflow, \emph{independent of the chosen
-  join order}.
+This query implies a seven-way join on all person ids, aggregating
+seven different person attributes back into an aggregate view. Within
+the LDBC dataset, every person carries all six of these
+attributes. Therefore all relations are of the same size and map
+one-to-one from person ids to the associated values. Because of this,
+implementing this query as six consecutive two-way joins would lead to
+roughly a threefold increase in the number of tuples maintained by
+this dataflow, \emph{independent of the chosen join order}.
 
 We encounter an even more pronounced version of this problem, when
 looking at sub-graph queries, such as the triangle search:
@@ -162,8 +156,6 @@ dataset simulating the social network activity of ~9,900 persons. On
 this we ran subsets of the above conjunctive query, increasing the
 number of clauses participating in the join.
 
-[@TODO explain constant overhead or fix it...]
-
 \begin{figure}[h!]
   \begin{subfigure}{1.0\textwidth}
     \includegraphics[width=1.0\linewidth]{results/join-state/out/tuples_join}
@@ -185,6 +177,12 @@ attributes participate in a consecutive two-way join, whereas it
 remains constant when using delta queries.
 
 [@TODO show dataflows and dataflow size]
+
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{results/join-state/out/all_cdfs}
+  \caption{Latency CCDFS}
+  \label{fig:arity-latencies}
+\end{figure}
 
 \subsection{Conclusions}
 
