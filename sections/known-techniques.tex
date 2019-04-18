@@ -267,7 +267,41 @@ reasons. One, they extend the class of queries for which we can hope
 to find non-disastrous plans and for which no optimal two-way join
 ordering exists. Second, they implement a very granular,
 non-heuristical form of adaptive query processing without the need for
-synchronized re-optimization points.
+synchronized re-optimization points. We make use of an adapted version
+of the worst-case optimal join algorithm by
+\cite{ammar2018distributed} in \autoref{case-join-ordering}, in order
+to provide predictable query performance without relying on
+heuristics.
+
+\subsection{Continuous Query Processing}
+
+Continuously evaluating queries over data streams using incremental
+computation is of course not a new idea, and commonly known as
+\emph{incremental view maintenance}. Early treatments such as
+\cite{terry1992continuous} identify the shortcomings of
+non-incremental, periodic execution of queries, propose continuous
+incremental maintenance and identify interesting semantics aspects,
+such as the need for stratified negation. Their \emph{Tapestry} system
+however supports only monotonic queries over append-only workloads on
+a single thread. Differential Dataflow provides the same incremental
+semantics while supporting retractions and distributed execution.
+
+\cite{blakeley1986efficiently} introduce the concept of
+\emph{differential re-evaluation} of views. In particular, they
+exploit the associativity of the join operator and observe that, for
+changes to a single relation, $A' \join B = (A + \delta{a}) \join B =
+(A \join B) + (\delta{a} \join B)$ — implying that the relational join
+operator is already incrementalized w.r.t. changes to any individual
+of its inputs.
+
+Further, because of the distributivity of the join operator, the union
+of multiple such views can be constructed to arrive at an
+incrementalized join operation w.r.t. to arbitrary changes to
+\emph{any} of its inputs.
+
+We adopt this approach in \autoref{case-join-state}, in order to
+incrementally process high-arity joins with only a constant memory
+footprint in addition to the arranged base relations.
 
 \subsection{Stream Optimization}
 
