@@ -2,131 +2,83 @@
 
 \begin{document}
 
+With a system like Differential Dataflow (\emph{Differential})
+available it becomes feasible to re-think the boundaries between the
+domain of analytical databases and that of near real-time stream
+processors.
+
+In previous work (\cite{declarative}) we therefore built 3DF (short
+for \emph{Declarative Differential Dataflow}), a dynamic query engine
+built on top of Differential. While Differential computations are
+compiled into static binaries, 3DF allows clients to register and
+unregister relational queries at runtime and to receive output changes
+via the network.
+
+The existing 3DF codebase will act as baseline and reference
+implementation for later chapters. Thus, this chapter is dedicated to
+describe the design and implementation of 3DF at the outset of this
+work.
+
 \subsection{Data Model} \label{3df-data-model}
 
-We adopt a unified, attribute-oriented data model. The fundamental
-unit of modeling are \emph{facts}, which are represented by \texttt{[e
-    a v]}-tuples (short for \emph{entity}, \emph{attribute},
-\emph{value}). Each triplet is to be read as ``Entity e has associated
-with it the attribute a, with a value v''. 3DF currently supports the
-following value types:
+3DF imposes strong opinions on data modeling. In particular, we adopt
+a unified, \emph{attribute-oriented} data model. The fundamental unit
+of modeling are facts, represented as entity, attribute, value
+triples. Although conceptually we are modelling a single space of
+facts as it evolves through logical time, we keep track of individual
+attributes in their own Differential collections. Attribute
+collections are thus binary relations. Throughout this work we use the
+terms \emph{attribute} and \emph{base relation} interchangeably. We
+use names starting with a colon to identify attributes
+(e.g. \texttt{:person/name}, \texttt{:comment/parent-post}).
 
-\begin{lstlisting}[language=Rust, style=colouredRust]
-enum Value {
-    // An entity identifier
-    Eid(u64),
-    // An attribute identifier
-    Aid(String),
-    // A string
-    String(String),
-    // A boolean
-    Bool(bool),
-    // A 64 bit signed integer
-    Number(i64),
-    // A 32 bit rational
-    Rational32(Rational32),
-    // Milliseconds since midnight, January 1, 1970 UTC
-    Instant(u64),
-    // A 16 byte unique identifier.
-    Uuid([u8; 16]),
-}
-\end{lstlisting}
-
-Although conceptually we are modelling a single space of facts as it
-evolves through logical time, we keep track of individual attributes
-in their own Differential collections. Attribute collections hold
-\texttt{(e, v)} pairs.
-
-We use 64bit unsigned integers to identify entities and string names
-starting with a colon to identify attributes
-(e.g. \texttt{:person/name}, \texttt{:comment/parent-post}). While the
-exact choice of types doesn't matter, it is this unification which
-frees us from having to compile dataflows individually.
-
-This flexible approach of breaking schemas down into individual
-attributes corresponds to a fully normalized relational model, and is
-heavily inspired by RDF, research on triple stores, or database
+An attribute-oriented data model corresponds to a fully normalized
+relational model, and is heavily inspired by graph databases, RDF, and
+research on triple stores. 3DF also draws heavily from database
 systems like Datomic (\cite{datomic}) and LogicBlox
-(\cite{aref2015design}). It allows to configure important semantics,
-such as data validation, access and privacy policies, compaction, and
-indexing strategy at a much more fine-grained level than a traditional
-database schema could accomodate. Other organizational aspects such as
-documentation and namespacing are also most naturally expressed at the
-level of the individual attribute.
+(\cite{aref2015design}).
+
+We believe that important semantics — such as schema, access and
+privacy policies, or compaction intervals — must be configurable at
+the level of an individual attribute, rather than in aggregate
+(e.g. on a relation in a traditional database schema), to satisfy the
+need for evolvable information systems in the real world. Other
+organizational aspects such as documentation and namespacing are also
+most naturally expressed at this fine-grained level. An important
+effect of attribute-oriented modeling is the ability to source
+attributes from different external systems, even though they might
+belong together from a domain modeling perspective.
 
 It is well established that data processing systems with data models
 optimized for a specific domain can outperform general-purpose systems
-by one or more orders of magnitude. Today, users can (in addition to
-traditional RDBMS) choose from column-stores designed for analytical
-queries, databases for time-series, graphs, or geographical data,
-search engines, and many more.
+by orders of magnitude. Today, users can (in addition to traditional
+RDBMS) choose from column-stores designed for analytical queries,
+databases for time-series, graphs, or geographical data, or full-text
+search engines. We share the view of \cite{aref2015design} towards
+specialized databases. Their use is warranted in scenarios where they
+can provide at least an order of magnitude in efficiency gains. Below
+that, the cost of developing, maintaining, and integrating a
+specialized system dominates. We suspect that this threshold is even
+higher for many industrial users with no in-house competence in
+designing data-processing systems.
 
-We strongly believe that the next generation of query processors must
-take into account the needs of the emerging data-science community, as
-those will make up most of our users in the future. Motivating this
-further and investigating all of the broad implications this will have
-on database design is beyond the scope of this work, but we will point
-out two important, exemplary concerns.
+Additionally, an important characteristic of modern analytical tasks
+is the prevalence of categorical features. In a relational setting,
+features correspond to distinct unary relations. In a traditional,
+row-oriented data model, modeling such data will lead to very wide,
+sparse tuples. Attribute-oriented data models can represent such data
+much more efficiently and materialize only necessary attributes, but
+incur frequent multi-way joins across relations of potentially highly
+varying selectivities. These same insights drive the design of modern,
+column-oriented analytical databases. We use the terms
+\emph{attribute} and \emph{column} interchangeably throughout this
+work.
 
-\subsubsection{Heterogeneous Sources}
-
-We can no longer assume that all inputs to a computation come from the
-same source (e.g. a traditional RDBMS). This is especially the case
-for systems like 3DF, which are not concerned with data storage at
-all. Inputs come from external systems, are stored in distributed
-filesystems, or are provided interactively by users. Inputs can have
-vastly different characteristics w.r.t volume, rate, and data type.
-
-The popularity of microservice-based architectures also imply, that
-modern query processors must integrate data from diverse sources in
-order to even arrive at a consistent, global view of any single domain
-entity.
-
-This new reality is elegantly captured by a column-oriented approach,
-where sourcing information, data schema, and other semantics can be
-configured separately for each individual attribute.
-
-\subsubsection{Categorical Data}
-
-An important computational characteristic of modern statistical
-learning is the prevalence of categorical features, typically
-represented via one-hot encodings. In a relational setting, one-hot
-encodings correspond to distinct unary relations for each distinct
-category a given record may fall into.
-
-In a traditional, row-oriented data model, modeling such data will
-lead to very wide, sparse tuples. Colum-oriented data models can
-represent such data much more efficiently and materialize only
-necessary attributes, but incur frequent multi-way joins across
-relations of potentially highly varying selectivities.
-
-Motivated by these considerations and with further inspiration from
-the LogicBlox and Datomic systems, we model all data in sixth normal
-form, meaning that every attribute is represented as a separate
-relation. This comes with a number of trade-offs, whose detailed
-investigation is not the focus of this work. In addition to the
-treatment in \cite{aref2015design}, we find that this model is well
-suited to dealing with many heterogeneous sources and maps naturally
-to Datalog expressions.
-
-\subsubsection{One Size Fits All?}
-
-We share the view of \cite{aref2015design} towards specialized
-databases. Their use is warranted in scenarios where they can provide
-at least an order of magnitude in efficiency gains. Below that, the
-cost of developing, maintaining, and integrating a specialized system
-dominates. We suspect that this threshold is even higher for many
-industrial users with no in-house competence in designing
-data-processing systems.
-
-A similar approach has been taken by the Datomic database
-(\cite{datomic}) and the EVE project (\cite{eve}). We witnessed the
-former's outsized, positive impact on developer productivity and
-system evolvability first-hand.
-
-We therefore think it worthwile to investigate whether novel
-approaches allows us to make general-purpose query engines that can
-offer competitive performance across a wider class of use cases.
+We therefore think it justified to fix attribute-orientation as a
+strong requirement for 3DF, and investigate instead whether novel
+approaches in other areas (such as Differential Dataflow itself) allow
+us to build systems that are useful in the real-world and can still
+offer competitive performance across a wide class of use cases.
 
 \subsection{Query Plan Language}
 
@@ -145,7 +97,7 @@ Any relational language relies on a small set of computational
 primitives: selections, joins, projections, and set union. As
 mentioned above, Datalog draws its expressive power from recursive
 rules, which can be supported via iteration to fixed point. On top of
-those primitives, we want to support stratified logical negation
+those primitives, we support stratified logical negation
 (\emph{negation as set difference}).
 
 Differential comes with a built-in two-way \texttt{join}
@@ -162,10 +114,10 @@ iteration patterns, such as mutual recursion, can be expressed by
 means of Differential's \texttt{Variable} abstraction. Variables
 represent collections that are not completely defined yet.
 
-While relational languages usually provide set semantics, we will be
-reflecting the multi-set semantics implemented by Differential
-collections. Wherever necessary, the \texttt{distinct} operator can be
-used to enforce set semantics on a collection.
+At the outset of this work, 3DF enforced set semantics over
+Differential's multi-sets, using the \texttt{distinct} operator. This
+changed over the course of this work. The reasons for this are
+detailed later in \autoref{set-vs-multiset}.
 
 Within 3DF query plans are represented as trees of operator
 descriptions (\emph{plan stages}). In addition to plan stages for the
@@ -184,29 +136,5 @@ The leaf nodes of a query plan are made up out of \emph{data
 \item \textbf{MatchAV := [?e a v]} reads all entity ids which have the
   value $v$ associated with them for attribute $a$.
 \end{itemize}
-
-We do not support variables in attribute position. Neither do we
-support a pattern for checking the existence of an individual fact
-(e.g. \texttt{MatchFact := [e a v]}).
-
-\subsection{Input Sources}
-
-An important effect of attribute-oriented modeling is the ability to
-source attributes from different external systems, even though they
-might belong together from a domain modeling perspective.
-
-3DF allows for generalized source operators, which feed one or more
-attribute indices. Source operators connect to external systems or
-read from the filesystem and break external data models down into
-their individual attributes. They are also responsible for entity id
-and timestamp assignment.
-
-Decisions made by sources can have a significant impact on overall
-system performance. Sources may stall the entire system by failing to
-downgrade their capabilities, cause uneven load patterns by issuing
-too small or too large batches, or overload the progress tracking
-subsystem by assigning unnecessarily many distinct timestamps. While
-highly relevant, these considerations are beyond the core focus of
-this work.
 
 \end{document}

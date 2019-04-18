@@ -112,11 +112,6 @@ differential dataflow can be independently iterated to fixed
 point. The entire computation responds efficiently to arbitrary
 changes in its inputs. Collections implement multi-set semantics.
 
-To our knowledge, Differential Dataflow is the only system that can
-maintain the performance characteristics of stream processors for
-complex relational computations, such as required by recursive SQL
-queries, or the evaluation of Datalog rules.
-
 Finally, the dynamic environments we are targeting necessitate the
 creation of new dataflows at runtime. New query dataflows will often
 require access to inputs that pre-date their creation, in order to
@@ -132,22 +127,10 @@ of updates to a collection. The resulting indexed state can be shared
 between operators and allows for the dynamic creation of dataflows
 that can feed off of them.
 
-\subsection{3DF}
-
-With a robust implementation of differential dataflow available it
-becomes feasible to re-think the boundaries between the domain of
-analytical databases and that of near real-time stream processors.
-
-3DF (\cite{declarative}, short for \emph{Declarative Differential
-  Dataflow}) is an attribute-oriented data model and accompanying
-query engine built on top of Differential Dataflow. Workers within a
-3DF cluster will extend Timely workers with an event-driven server
-loop that accepts commands from external clients. In particular,
-clients can send query plans that are then synthesized into
-differential dataflows at runtime.
-
-We will work within the existing 3DF codebase throughout this
-thesis. Thus, the next chapter is dedicated to describe the design and
-implementation of 3DF at the outset of this work.
+To our knowledge, Differential Dataflow is the only system that can
+(a) maintain the performance characteristics of stream processors for
+complex relational computations, such as required by recursive SQL
+queries or the evaluation of Datalog rules, and that (b) allows for
+low-latency, shared access to historical inputs.
 
 \end{document}
