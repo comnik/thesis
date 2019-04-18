@@ -2,48 +2,24 @@
 
 \begin{document}
 
-\subsection{Rule Engines}
+Over the previous chapters we have given arguments for why
+Differential Dataflow poses a unique opportunity to build a system
+that combines the performance characteristics of distributed stream
+processing with the analytical power of relational and graph
+databases. We have also introduced 3DF as a prototype of such a
+system.
 
-Rule-based systems allow for the expression of business rules, often
-in a high-level language. Registered rules will then be continuously
-evaluated against an input stream of business events. 
-
-It quickly becomes infeasible to re-evaluate all rules on every
-input. Specialized algorithms are employed to efficiently determine
-the subset of rules that might possibly be affected by a new
-input. Those rules are then re-evaluated. The RETE algorithm due to
-Forgy (\cite{forgy1989rete}) is the archetypical pattern-matching
-algorithm powering rule engines. PHREAK \cite{drools} is a
-collection-oriented alternative to the tuple-by-tuple RETE.
-
-At its core, RETE is an algorithm to compile rule definitions into a
-corresponding \emph{discrimination network}. This approach is very
-much reminiscent of a dataflow computation.
-
-Most of the operators (called \emph{nodes}) that Forgy describes are
-simple filters for an input's data type and similar discriminating
-attributes. These are easily replicated by Differential's
-\texttt{filter} operator. A clause such as \texttt{[?x :class/attr
-    ?a]} will furthermore act as an inherent object-type filter.
-Forgy also describes \texttt{join} nodes, which are easily emulated by
-Differential's own \texttt{join} operator.
-
-Critically, RETE networks assume that leaf nodes are traditional,
-ad-hoc queries run against a conventional database. In Differential,
-the entire computation is incrementalized.
-
-While the literature on rule engines does provide interesting
-approaches to incrementalizing traditional query engines, they lack
-the relational abstractions, strong consistency guarantees, and the
-ability to distribute recursive queries.
+In this chapter we will survey the decades of research on optimizing
+both, relational query processing and streaming computations, and
+discuss to what extent these techniques could aid us in making 3DF fit
+for use in highly dynamic, multi-user environments.
 
 \subsection{Cost-Based Query Planning}
 
-The field of query optimization is vast. For the purposes of this work
-we will be focusing mostly on relational query planning. Query
-planning is the task of, given a tree structure of relational
-operators, determining the most efficient order in which to execute
-these operators without affecting the result set.
+The field of relational query planning is vast. Query planning is the
+problem of, given a tree structure of relational operators,
+determining the most efficient order in which to execute these
+operators without affecting the result set.
 
 \cite{selinger1979access} give the canonical query planner, split into
 three components: cardinality estimation, plan space enumeration, and
@@ -100,15 +76,15 @@ the cardinality model.
 \end{quote}
 
 It is well established, that cardinality estimation is both the most
-important part of traditional query optimization, as well as the
-hardest to get right. \cite{leis2015good} show that estimation errors
-grow exponentially with the number of joins for a representative
-selection of modern relational DBMS. They also show that correct
-cardinality estimates are much more important for plan performance
-than more accurate cost models. Due to 3DFs highly normalized data
-model, a large class of relevant queries require multi-way joins
-across many base relations. This implies that 3DF would be exceedingly
-sensitive to these kinds of ballooning errors.
+important part of cost-based query planning, as well as the hardest to
+get right. \cite{leis2015good} show that estimation errors grow
+exponentially with the number of joins for a representative selection
+of modern relational DBMS. They also show that correct cardinality
+estimates are much more important for plan performance than more
+accurate cost models. Due to 3DFs highly normalized data model, a
+large class of relevant queries require multi-way joins across many
+base relations. This implies that 3DF would be exceedingly sensitive
+to these kinds of ballooning errors.
 
 Neither the importance of cardinality estimation, nor the difficulty
 of doing it accurately are surprising. Until recently, most strategies
@@ -116,124 +92,89 @@ for planning multi-way joins consisted of breaking down a n-way join
 into a (hopefully optimal) sequence of two-way joins. In such a
 setting, accurately estimating the number of tuples contained in the
 result set of joining two relations is crucial in order to pick a plan
-that materializes as few tuples as possible.
+that materializes as few tuples as possible. Even slightly
+over-optimistic selectivity estimates can cause cardinality estimation
+errors proportional in the size of the input relations.
 
 Many modern database systems still compute their estimates under the
-same assumptions originally proposed for System R. In the following,
-we want to review a few of those assumptions.
+same assumptions originally proposed for System R.
 
 \begin{itemize}
 \item \textbf{Uniformity}
 
-  Consider a simple constant binding on a column \texttt{[?x
-      :comment/browser Firefox]}, asking for user comments created using
-  the Firefox browser. Following \cite{selinger1979access}, the
-  selectivity of such a clause would be computed as
-
-  \begin{equation}
-    \dfrac{1}{dom(\text{:comment/browser})} = \dfrac{1}{5}
-  \end{equation}
-
-  assuming five distinct browsers appear within our dataset. Crucially,
-  this formula assumes a uniform distribution of browsers, whereas we
-  would expect a distribution matching actual browser usage in our
-  target markets.
-
-  Given some additional index statistics, such as a histogram of the
-  actual frequencies, an optimizer might reasonibbly be expected to
-  determine a more accurate estimate.
-
-  However, as noted in \cite{lohman2014query}, queries in the real world
-  are often not written by humans directly but by other software
-  sytems. Such systems will often allow additional parameterization of
-  the query via a user interface. In the particular case of 3DF we will
-  often see the following transform, introducing an additional parameter
-  input:
-
-\begin{verbatim}
-[:find ?x :where [?x :comment/browser "Firefox"]]
-=>
-[:find ?x 
- :where [?x :comment/browser ?c] [_ :parameter ?c]]
-\end{verbatim}
-
-Within the continuous query processing setting, this allows users to
-flip through different query parameters without having to create new
-dataflows (and thus benefitting from the incremental re-computation of
-results).
-
-Unfortunately such an abstraction means, that we can not look up the
-accurate selectivity during query registration, because the actual
-parameter value is not known. Phrased differently, in our setting, the
-problem of estimating selectivity of constant predicates is often
-indistinguishable from estimating the selectivity of a join.
-
-This issue also touches on a larger one, which is that traditional
-optimizers assume that they have access to up-to-date, accurate
-statistics on all relevant query inputs. This is less and less true in
-today's architectures. 3DF's data model is built with heterogeneous,
-external data sources in mind, for which suitable statistics might not
-be available.
+  Uniformity is the assumption, that the values in an attribute are
+  uniformly distributed. Under this assumption, the selectivity of
+  predicates on any specific value is computed simply as the inverse
+  of the domain cardinality of the attribute. This is of course a
+  naive assumption, as attributes in the real-world tend to exhibit a
+  certain bias, e.g. age and location of users of a specific service.
 
 \item \textbf{Principle of Inclusion}
 
-\cite{selinger1979access} give the selectivity of a relational
-equi-join on two columns $c_1$ and $c_2$ as
-$\dfrac{1}{max(dom(c_1),dom(c_2))}$. This assumes that the domains of
-the two columns overlap. On otherwise unselected columns with
-appropriate referential constraints between them, this assumption is
-valid. As soon as we apply other selection predicates before joining,
-this assumption will not hold in general.
+  \cite{selinger1979access} give the selectivity of a relational
+  equi-join on two columns as the inverse of the greater of their
+  domain cardinalities. This assumes that the domains of the two
+  columns overlap. On otherwise unselected columns with appropriate
+  referential constraints between them, this assumption is valid. As
+  soon as we apply other selection predicates before joining, this
+  assumption will not hold in general.
 
 \item \textbf{Independence}
 
-Multiple conjunctive predicates on the same relation are assumed to be
-independent, allowing for their combined selectivity to be computed as
-the product of their individual selectivities. In other words,
-individual attributes are assumed to be uncorrelated.
+  Multiple conjunctive predicates on the same relation are assumed to
+  be uncorrelated, allowing for their combined selectivity to be
+  computed as the product of their individual selectivities. While at
+  first glance, with the good relational practice of normalizing data
+  models in mind, this seems like a reasonable assumption, it quickly
+  breaks down on real-world data. A simple example might be the two
+  attributes ``age'' and ``salary'', which tend to correlate in most
+  organizations. Breaking such functional dependencies down into more
+  fundamental, independent attributes and combining them with
+  intricate models necessary to re-derive salaries is not feasible in
+  practice. Often relations are the most succinct and pragmatic way to
+  model a functional dependency.
 
-While at first glance, with the good relational practice of
-normalizing data models in mind, this seems like a reasonable
-assumption, it quickly breaks down on real-world data. A simple
-example might be the two attributes ``age'' and ``salary'', which tend
-to correlate in most organizations. Breaking such functional
-dependencies down into more fundamental, independent attributes and
-combining them with intricate models necessary to re-derive salaries
-is not feasible in practice. Often relations are the most succinct and
-pragmatic way to model a functional dependency.
+\item \textbf{Global Information}
+
+  It is assumed that the query planner has access to up-to-date,
+  accurate statistics on all relevant query inputs. This critical
+  assumption does not hold in the continuous query processing setting,
+  where not a single relevant input might have yet been seen at
+  planning time.
 
 \end{itemize}
 
-For these reasons and others, cardinality estimates are seldom
-accurate in practice. More insidiously, any slightly over-optimistic
-selectivity estimation will immediately cause cardinality estimation
-errors proportional in the size of the relation.
-
-On a database with ten million entities, the uniformity assumption
-would lead us to assign a selectivity of $\dfrac{1}{10^7}$ to any
-individual predicate on each individual attribute. If any attribute
-proves even slightly less selective in practice, our cardinality
-estimate will be severly off.
+While more sophisticated statistical models and methods have been
+proposed to loosen the reliance on assumptions of uniformity and
+independence (\cite{markl2007consistent}, \cite{ilyas2004cords}), it
+is the assumption of global information that prevents the use of
+traditional cardinality estimation when maintaining queries over
+potentially unbounded streams.
 
 \subsection{Adaptive Query Processing} \label{technique-adaptive}
 
-We have seen in the previous chapter, that all traditional approaches
-to cardinality estimation (and thus to join ordering and query
-planning at large) are susceptible to exponentially compounding
-estimation errors due to the use of heuristics.
+In the previous section we have seen that traditional approaches to
+cardinality estimation (and thus to join ordering and query planning
+at large) are susceptible to exponentially compounding estimation
+errors due to the use of simplistic heuristics and furthermore can not
+be translated into the continuous query processing setting, due to the
+unavailability of \emph{any} meaningful statistics.
 
-An additional problem arises in the context of continuously evaluating
-queries over data streams, because the heuristics available at query
-registration time might bear very little resemblance to those gathered
-after a few hours of new inputs. Therefore any planning decisions made
-based on those assumptions will have to be revised over time.
+An additional problem arises in this context, because even when
+accurate heuristics are available at query planning time, they might
+bear very little resemblance to those gathered after a few hours of
+new inputs. Therefore any planning decisions made based on those
+assumptions will have to be revised over time. In a general purpose,
+multi-user environment, queries might live anywhere from a few seconds
+to months or even years — ample time for the underlying distributions
+to change dramatically.
 
-Adaptive query processing explores the idea, that if disastrous plans
-are to be expected every once in a while, and planning assumptions
-change over time, then systems should be able to adapt planning
-decisions on the fly.
+Adaptive query processing explores the idea, that in environments
+where disastrous plans are to be expected every once in a while, and
+planning assumptions change constantly over time, then systems should
+be able to adapt planning decisions on the fly.
 
-\cite{avnur2000eddies} introduced a new query processing architecture,
+\cite{avnur2000eddies} introduce a new query processing architecture,
 called \emph{eddy}, which ``continuously reorders operators in a query
 plan as it runs''. In a dataflow settings, this is best imagined as an
 additional dataflow operator routing input tuples between a set of
@@ -244,16 +185,26 @@ A significant challenge in \cite{avnur2000eddies} is the problem of
 identifying \emph{moments of symmetry}, synchronization points within
 the processing pipeline, at which operator inputs can be re-ordered
 without the need to modify the accumulated operator state (which can
-be on the order of the entire input relation for joins).
+be on the order of the entire input relation for joins). They analyse
+various families of join algorithms under this new
+criterium. Differential's incremental join operator is entirely
+co-ordinated by its inputs and, in combination with logical
+timestamps, might not necessarily be affected by the same
+considerations. However an exact translation of eddies into
+Differential would require more investigation.
 
 A complementary approach to the adaptive query processing problem is
-\emph{progressive optimization}, as employed by
+that of \emph{progressive optimization}, as employed by
 \cite{markl2004robust}. This work extends the query processing
 pipeline with a re-optimization step, validating cardinality estimates
 against the actual values measured during execution of a previous
 query. Re-optimization imposes a synchronization barrier on the
-processing pipeline, which is inappropriate for the continuous
-setting.
+processing pipeline, which is inappropriate for long-lived,
+low-latency dataflows.
+
+While the specifics of an adaptive query processing primitive would
+therfore likely be different in Differential Dataflow, the motivating
+observations clearly apply.
 
 \subsection{Worst-Case Optimal Join Processing} \label{technique-wco}
 
@@ -274,13 +225,12 @@ n-way joins all at once, instead of join-at-a-time. In fact, both were
 later generalized under a common framework in \cite{ngo2013skew},
 called \emph{GenericJoin}.
 
-Given some ordered sequence of target variables (e.g. \texttt{[?a ?b
-    ?c]}) and a set of relations (e.g. \texttt{{[?a :edge ?b] [?b
-      :edge ?c] [?c :edge ?a]}}) GenericJoin proceeds
-\emph{variable-by-variable} (rather than relation-by-relation),
-starting from the set containing only the empty prefix. Given a set of
-prefixes, GenericJoin iteratively computes the \emph{extension} of
-that set to the next variable in the variable ordering.
+Given some ordered sequence of target variables and a set of
+relations, GenericJoin proceeds \emph{variable-by-variable} rather
+than relation-by-relation, starting from the set containing only the
+empty prefix. From a set of prefixes, GenericJoin iteratively computes
+the \emph{extension} of that set to the next variable in the variable
+ordering.
 
 For each such extension stage, candidate extensions will be drawn from
 whichever relation promises to propose the least number of extensions,
@@ -293,9 +243,8 @@ logarithmic time. Additionally, proposals must be provided with
 constant delay.
 
 Under these assumptions, each extension stage of a GenericJoin will
-only do work on the order of the largest possible result set.
-
-Picking suitable variable orderings is a crucial part of these new
+only do work on the order of the largest possible result set. Picking
+suitable variable orderings is a crucial part of these new
 algorithms. While sub-optimal orderings do not affect the theoretical
 guarantees, they can make a significant difference in
 practice. Intuitively, this is because the maximum size of the result
@@ -310,10 +259,15 @@ intermediate results.
 More recently, \cite{ammar2018distributed} give worst-case optimal
 join algorithms for the data-parallel dataflow setting. The resulting
 operators are very much reminiscent of eddies, in that they make
-planning decisions on a per-tuple basis. However, they do not require
-moments of symmetry nor synchronized re-optimization points. They also
-extend the worst-case optimality to cover communication costs between
-workers.
+planning decisions on a per-tuple basis. They also extend the
+worst-case optimality to cover communication costs between workers.
+
+Worst-case optimal join algorithms are therefore promising for two
+reasons. One, they extend the class of queries for which we can hope
+to find non-disastrous plans and for which no optimal two-way join
+ordering exists. Second, they implement a very granular,
+non-heuristical form of adaptive query processing without the need for
+synchronized re-optimization points.
 
 \subsection{Stream Optimization}
 
@@ -366,6 +320,41 @@ In conclusion, while micro optimizations on the dataflow graph can be
 very beneficial, we are more concerned with optimizations that affect
 the overall system design and provide asymptotic improvements.
 
+\subsection{Rule Engines}
+
+Rule-based systems allow for the expression of business rules, often
+in a high-level language. Registered rules will then be continuously
+evaluated against an input stream of business events.
+
+It quickly becomes infeasible to re-evaluate all rules on every
+input. Specialized algorithms are employed to efficiently determine
+the subset of rules that might possibly be affected by a new
+input. Those rules are then re-evaluated. The RETE algorithm due to
+Forgy (\cite{forgy1989rete}) is the archetypical pattern-matching
+algorithm powering rule engines. PHREAK \cite{drools} is a
+collection-oriented alternative to the tuple-by-tuple RETE.
+
+At its core, RETE is an algorithm to compile rule definitions into a
+corresponding \emph{discrimination network}. This approach is very
+much reminiscent of a dataflow computation.
+
+Most of the operators (called \emph{nodes}) that Forgy describes are
+simple filters for an input's data type and similar discriminating
+attributes. These are easily replicated by Differential's
+\texttt{filter} operator. A clause such as \texttt{[?x :class/attr
+    ?a]} will furthermore act as an inherent object-type filter.
+Forgy also describes \texttt{join} nodes, which are easily emulated by
+Differential's own \texttt{join} operator.
+
+Critically, RETE networks assume that leaf nodes are traditional,
+ad-hoc queries run against a conventional database. In Differential,
+the entire computation is incrementalized.
+
+While the literature on rule engines does provide interesting
+approaches to incrementalizing traditional query engines, they lack
+the relational abstractions, strong consistency guarantees, and the
+ability to distribute recursive queries.
+
 \subsection{Conclusions}
 
 We reiterate our desire for a practical system serving diverse data
@@ -397,7 +386,7 @@ the above sections, the reasons for this are manifold:
     often proportional in the size of entire relations and compound on
     complex queries invoving many joins. We saw that estimation errors
     of many orders of magnitude are not merely a theoretical concern
-    but a common occurrence in real world planners.
+    but a common occurrence in real-world planners.
 
   \item
     In our setting, we must implement computations \emph{before} any

@@ -26,7 +26,7 @@ plans picked, because those have an outsized negative effect on
     information.
 
   \item \textbf{Low-latency and High-Throughput} The attractiveness of
-    stream-processing derives from its performance characteristics,
+    stream processing derives from its performance characteristics,
     and the possibility to obtain results in a timely manner. While
     aiming for (1) and (2), we must take care to overall maintain
     these properties as much as possible.
@@ -34,14 +34,15 @@ plans picked, because those have an outsized negative effect on
 
 To this end, we will in \autoref{background} first provide some
 background on the data-parallel dataflow model, modern stream
-processors, differential computation, and the 3DF query engine. 3DF in
-particular enforces a highly opinionated data model that fundamentally
-affects all other considerations throughout this work. We motivate
-these opinions in \autoref{3df} and provide a short overview of the
-state of 3DF before this work.
+processors, and differential computation. \autoref{3df} describes 3DF,
+a streaming relational query engine we've built previously, that will
+serve as a baseline and reference implementation. 3DF enforces a
+highly opinionated data model that fundamentally affects all other
+considerations made throughout this work. We motivate these opinions
+and provide a short overview of the state of 3DF before this work.
 
 \autoref{known-techniques} is a survey of existing optimization
-strategies from both the database and the stream-processing
+strategies from both the database and the stream processing
 communities and a discussion of their applicability to our setting.
 
 Across the subsequent chapters we then cover what we have found to be
