@@ -2,14 +2,12 @@
 
 \begin{document}
 
-\subsection{Problem}
-
-When working with a declarative query language such as the one
-provided by 3DF, users are encouraged to think of their domain in
-terms of attributes, entities, and the relations that govern their
-interaction. 3DF, borrowing from Datalog, provides the \emph{rule} —
-fundamentally a named disjunction of conjunctions — as its core
-abstraction. Rules may refer to each other or recursively to
+3DFs attribute-oriented data model encourages users to think of their
+domain in terms of attributes, entities, and the relations that govern
+their interaction. Borrowing from Datalog, 3DF provides the
+\emph{rule} — fundamentally a named disjunction of conjunctions — as
+its core abstraction to express information that can be derived from
+the base relations. Rules may refer to each other or recursively to
 themselves. Domain logic, constraints, and higher-level relationships
 are all expressed as rules.
 
@@ -23,9 +21,9 @@ previously defined rules, 3DF would maintain rule results in a
 Differential arrangement.
 
 This is a prime example of violating the robustness property
-identified in \ref{problem}: Users are merely following the
+identified in \autoref{problem}: Users are merely following the
 declarative interaction model (which we are actively encouraging), and
-get punished for doing so!
+get punished for doing so.
 
 \subsection{Example}
 
@@ -138,7 +136,7 @@ implementing a dataflow that many other flows depend on, means we are
 stuck with the potentially horrific plan until all downstream
 computations are shut down.
 
-We will explore this trade-off in much greater detail in the following
+We will explore this trade-off in greater detail in the following
 scenarios.
 
 \end{document}

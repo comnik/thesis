@@ -289,10 +289,10 @@ semantics while supporting retractions and distributed execution.
 \cite{blakeley1986efficiently} introduce the concept of
 \emph{differential re-evaluation} of views. In particular, they
 exploit the associativity of the join operator and observe that, for
-changes to a single relation, $A' \join B = (A + \delta{a}) \join B =
-(A \join B) + (\delta{a} \join B)$ — implying that the relational join
-operator is already incrementalized w.r.t. changes to any individual
-of its inputs.
+changes to a single relation, $A' \bowtie B = (A + \delta{a}) \bowtie
+B = (A \bowtie B) + (\delta{a} \bowtie B)$ — implying that the
+relational join operator is already incrementalized w.r.t. changes to
+any individual of its inputs.
 
 Further, because of the distributivity of the join operator, the union
 of multiple such views can be constructed to arrive at an
@@ -305,37 +305,40 @@ footprint in addition to the arranged base relations.
 
 \subsection{Stream Optimization}
 
-\cite{hirzel2014catalog} helpfully provide a catalog of the most
+We turn now away from optimization as practiced by the database
+community, and survey the state of general stream processing
+optimizations. \cite{hirzel2014catalog} provide a catalog of the most
 common optimizations in stream processing, of which we will highlight
 a few.
 
-\textbf{Operator Reordering} is a much simpler version of the ideas
-discussed in the previous chapters. The basic idea is to move more
-selective operators upstream, in order to minimize the number of
-tuples propagated downstream. Selectivity in this setting is treated
-mostly at the level of operator types (e.g. \texttt{Filter} has a
-higher selectivity than \texttt{Map}).
+\begin{itemize}
+  \item \textbf{Operator Reordering} is a much simpler version of the
+    ideas discussed in the previous chapters. The basic idea is to
+    move more selective operators upstream, in order to minimize the
+    number of tuples propagated downstream. Selectivity in this
+    setting is treated mostly at the level of operator types
+    (e.g. \texttt{Filter} has a higher selectivity than \texttt{Map}).
 
-\textbf{Redundancy Elimination} attempts to remove redundant operators,
-e.g. by moving equivalent operators on two branches of a dataflow into
-their shared trunk.
+  \item \textbf{Redundancy Elimination} attempts to remove redundant
+    operators, e.g. by moving equivalent operators on two branches of
+    a dataflow into their shared trunk.
 
-\textbf{State Sharing} avoids unnecessary copies of data, by allowing
-operators to access a shared piece of state (e.g. an index).
+  \item \textbf{State Sharing} avoids unnecessary copies of data, by
+    allowing operators to access a shared piece of state, e.g. an
+    index.
 
-\textbf{Batching} exploits the fact that many operators can amortize
-processing across many inputs.
+  \item \textbf{Batching} exploits the fact that many operators can
+    amortize processing across many inputs.
+\end{itemize}
 
 An interesting trade-off between pushing selective operators upstream
 and redundancy elimination arises in the multi-tenant setting, as the
 more selective operators tend to differ between computations. Pushing
 these operators upstream might thus severely reduce the re-usability
 of a dataflow trunk, while significantly reducing the number of tuples
-flowing downstream. 
-
-Hirzel et al. cite more sophisticated techniques to share dataflow
-elements in a multi-tenant setting. We will come back to these in
-chapter \ref{case-redundant-dataflows}.
+flowing downstream. Hirzel et al. cite more sophisticated techniques
+to share dataflow elements in a multi-tenant setting. We will come
+back to these in \autoref{case-redundant-dataflows}.
 
 A similar trade-off arises between separation of operators into
 smaller computational steps in order to exploit pipeline parallelism,
@@ -350,25 +353,25 @@ its extensions. Additionally, Differential's arrangements already
 provide a general purpose way to share compacted and sorted batches of
 tuples between operators.
 
-In conclusion, while micro optimizations on the dataflow graph can be
-very beneficial, we are more concerned with optimizations that affect
-the overall system design and provide asymptotic improvements.
+Therefore, while micro optimizations on the dataflow graph can be
+beneficial, we are more concerned with optimizations that affect the
+overall system design and have the potential to provide asymptotic
+improvements.
 
 \subsection{Rule Engines}
 
-Rule-based systems allow for the expression of business rules, often
-in a high-level language. Registered rules will then be continuously
-evaluated against an input stream of business events.
-
-It quickly becomes infeasible to re-evaluate all rules on every
+Finally, we look into the intersectional topic of rule
+engines. Rule-based systems allow for the expression of business
+rules, often in a high-level language. Registered rules will then be
+continuously evaluated against an input stream of business events. It
+quickly becomes infeasible to re-evaluate all rules on every
 input. Specialized algorithms are employed to efficiently determine
 the subset of rules that might possibly be affected by a new
-input. Those rules are then re-evaluated. The RETE algorithm due to
-Forgy (\cite{forgy1989rete}) is the archetypical pattern-matching
-algorithm powering rule engines. PHREAK \cite{drools} is a
-collection-oriented alternative to the tuple-by-tuple RETE.
+input. Those rules are then re-evaluated.
 
-At its core, RETE is an algorithm to compile rule definitions into a
+The RETE algorithm due to Forgy (\cite{forgy1989rete}) is the
+archetypical pattern-matching algorithm powering rule engines. At its
+core, RETE is an algorithm to compile rule definitions into a
 corresponding \emph{discrimination network}. This approach is very
 much reminiscent of a dataflow computation.
 
@@ -382,12 +385,11 @@ Differential's own \texttt{join} operator.
 
 Critically, RETE networks assume that leaf nodes are traditional,
 ad-hoc queries run against a conventional database. In Differential,
-the entire computation is incrementalized.
-
-While the literature on rule engines does provide interesting
-approaches to incrementalizing traditional query engines, they lack
-the relational abstractions, strong consistency guarantees, and the
-ability to distribute recursive queries.
+the entire computation is incrementalized. While the literature on
+rule engines does provide interesting approaches to incrementalizing
+traditional query engines, they lack the relational abstractions,
+strong consistency guarantees, and the ability to distribute recursive
+queries.
 
 \subsection{Conclusions}
 
@@ -443,7 +445,17 @@ the above sections, the reasons for this are manifold:
 \end{enumerate}
 
 Fortunately we have also seen that more recent approaches from the
-field of adaptive query processing and worst-case optimal join
-processing match our operational needs much more closely.
+field of adaptive query processing, incremental view maintenance, and
+worst-case optimal join processing match our operational needs much
+more closely.
+
+In the following chapters, we will now focus on what we believe to be
+the most significant challenges facing any system that wishes to
+provide continuously evaluated, complex relational queries to many
+interactive clients with predictable, consistently good
+performance. For each we will describe the problem, first in general
+terms and then alongside specific examples. We will then describe and
+evaluate potential remedies, based on the techniques we have explored
+in this chapter.
 
 \end{document}
