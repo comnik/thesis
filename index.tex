@@ -35,17 +35,44 @@
 
 \section{Abstract} \label{abstract}
 
+The capability to maintain sophisticated relational queries over
+potentially unbounded data streams is a critical competitive advantage
+for data-driven organizations. Traditional approaches to relational
+query optimization assume ad-hoc execution, benevolent distribution of
+data, and the availability of accurate statistics at planning
+time. Established practice in low-latency stream processing assumes
+comparatively simpler computational models and relaxed consistency
+guarantees.
+
+\emph{Differential computation} generalizes incremental computation to
+support data-parallel relational operators and arbitrarily nested,
+least fixed point iteration. In this work we identify the challenges
+to providing these new capabilities to dynamic multi-user environments
+and describe solutions adapted from the database and stream-processing
+communities.
+
+We implement our findings in \emph{3DF}, an interactive Datalog engine
+built on \emph{Differential Dataflow}, an implementation of
+differential computation. We evaluate the resulting system and
+showcase in particular (I) the use of delta-queries to maintain joins
+of arbitrary arity with a constant memory footprint, (II) the use of
+worst-case optimal join algorithms to provide predictable query
+performance on adversarially skewed data, and (III) strategies to
+share resources between clients without giving up individual
+optimization opportunities.
+
 \section{Introduction and Motivation} \label{intro}
 \subfile{sections/intro.tex}
+\newpage
+
+\section{Problem Description and Scope} \label{problem}
+\subfile{sections/problem.tex}
 
 \section{Background} \label{background}
 \subfile{sections/background.tex}
 
 \section{Design and Implementation of 3DF} \label{3df}
 \subfile{sections/3df.tex}
-
-\section{Problem Description and Scope} \label{problem}
-\subfile{sections/problem.tex}
 
 \section{Known Techniques and Related Work} \label{known-techniques}
 \subfile{sections/known-techniques.tex}
