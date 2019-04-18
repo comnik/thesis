@@ -2,38 +2,31 @@
 
 \begin{document}
 
-\subsection{Problem}
-
 As has been widely documented within the database community
 (\cite{leis2015good}, \cite{lohman2014query}), many complex queries
 are highly sensitive to join ordering. We have discussed the
-established heuristical approaches originating from
-\cite{selinger1979access} in \autoref{known-techniques} and hinted at
-their various shortcomings.
-
-There we concluded that in practice, cardinality estimation under the
+established heuristical approaches originating in
+\autoref{known-techniques} and hinted at their shortcomings when
+applied within the continuous query processing setting. There we
+concluded that in practice, cardinality estimation under the
 traditional assumptions (uniformity, uncorrelated join predicates,
 overlapping key domains, and full access to meaningful statistics) can
-not avoid disastrous plans.
+not effectively avoid disastrous plans on long-lived query plans.
 
-While improvements in probabilistic modeling of correlations, on-line
-gathering of index statistics, and adaptive approaches to query
-execution such as Eddies provide many interesting avenues of inquiry,
-we are primarily interested in approaches that make disastrous plans
-impossible — possibly at the expense of best- and average-case
-performance.
+We would like to take a defensive approach that makes disastrous plans
+impossible, even if at the expense of best- and average-case
+performance. The reasons for this are two-fold: first, and most
+importantly, disastrous query plans violate all three of the desired
+properties outlined in \autoref{problem}. Second, from our experiences
+with 3DF itself, and from experiences with other declarative systems
+such as the Prolog language, we know that the mere \emph{possibility}
+of unpredictable, severe performance degradations break the
+fundamental promise of the declarative abstraction, and force users to
+reason defensively about the system runtime.
 
-The reasons for this are two-fold: first, and most importantly,
-disastrous query plans violate all three of the desired properties
-outlined in \ref{problem}. Second, from experiences with 3DF itself,
-and other declarative systems such as the Prolog language, we know
-that the mere \emph{possibility} of unpredictable, severe performance
-degradations break the fundamental promise of the declarative
-abstraction, and force users to reason defensively about the system
-runtime.
+\subsection{Example}
 
-We can further distinguish between different classes of problematic
-queries:
+We can distinguish between different classes of problematic queries:
 
 \begin{itemize}
 
@@ -114,10 +107,9 @@ optimal extension strategy.
 We thus expect a wco approach to significantly improve robustness on
 queries in the worst-case class, but to adversly affect performance on
 average- and best-case queries, as compared to traditional,
-heuristics-based approaches.
-
-Our particular implementation of a worst-case optimal dataflow join
-operator is detailed in \autoref{impl-hector}.
+heuristics-based approaches. Our particular implementation of a
+worst-case optimal dataflow join operator is detailed in
+\autoref{impl-hector}.
 
 \subsection{Evaluation}
 
