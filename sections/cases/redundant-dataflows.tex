@@ -2,32 +2,27 @@
 
 \begin{document}
 
-\subsection{Problem}
-
-Throughout the previous chapters we have seen how to implement
-high-arity joins in constant memory and without falling back to
-heuristics, using delta queries and worst-case optimal join
-algorithms. We believe that these are important building blocks for
-our goal of providing robust, predictable performance within a
-multi-user environment, at high throughputs, with low latencies, and
-with bounded memory use. In doing so, we have somewhat overcorrected,
-at the expense of redundancies in the overall dataflow. Apart from the
-attribute indices, we have foregone almost all opportunities for
-sharing resources between dataflows.
+Throughout the previous chapters we have seen how to continuously
+maintain high-arity joins with robust, adaptive performance and within
+a constant memory footprint, using delta queries and worst-case
+optimal join algorithms. Neither of these measures had a significant
+negative impact on absolute query performance. Still, we have somewhat
+overcorrected, at the expense of redundancies in the overall
+dataflow. Apart from the attribute indices, we have ignored almost all
+opportunities for sharing resources between dataflows.
 
 Query dataflows consume a number of resources over their entire
 lifetime, which might be measured in minutes or hours for interactive
 sessions, but in days, weeks, months, or even years for dataflows
 between backend services. The primary resource consumed by a dataflow
-element is of course space to (potentially) buffer and index its
-inputs. We refer to this as \emph{operator state}. To a lesser extent
-dataflow elements themselves incur some marginal costs both in space,
-for maintaining a representation of the dataflow graph, and in time,
+element is space to (potentially) buffer and index its inputs. We
+refer to this as \emph{operator state}. To a lesser extent dataflow
+elements themselves incur some marginal costs both in space, for
+maintaining a representation of the dataflow graph, and in time,
 because additional operators need to receive and process progress
-information.
-
-Naturally, sharing neither indexed operator state, nor dataflow
-elements, limits the number of clients we can support concurrently.
+information. Naturally, sharing neither indexed operator state, nor
+dataflow elements, limits the number of clients we can support
+concurrently.
 
 \subsection{Example}
 
