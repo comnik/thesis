@@ -2,126 +2,37 @@
 
 \begin{document}
 
-In this section we will cover in greater detail the changes and
-extensions to 3DF, that we implemented over the course of this work.
-
-\subsection{Indexing}
-
-In order to make use of the worst-case optimal dataflow-join framework
-described in section \ref{case-join-ordering} we could no longer
-maintain attributes as just an arranged collection of \texttt{(e v)}
-pairs. The implementation of the \texttt{PrefixExtender} trait
-(described later in section \ref{impl-hector}) for attributes requires
-two additional traces, one to keep track of the number of extensions
-the attribute would propose for a given prefix and a trace indexed in
-a way suitable to efficiently validate proposals made by other
-extenders.
-
-Additionally, attributes might be placed at a stage in the delta query
-pipeline, at which prefixes already bind the value symbol. In that
-case, reversed versions of all three of the above arrangements must be
-at hand.
-
-We therefore introduced a \texttt{CollectionIndex} structure which
-holds all three arrangements for a given direction and a given
-attribute. 3DF workers maintain separate mappings from attribute names
-to their forward and reverse collection indices. This simplifies the
-types and ownership involved. Collection indices implement a subset of
-Differential's arrangement API: an \texttt{import} method for
-importing all internal traces into a top-level scope, as well as an
-\texttt{enter\_at} method to bring all imported internal arrangements
-into a nested scope with an additional timestamp co-ordinate.
-
-\begin{lstlisting}[language=Rust, style=colouredRust][h!]
-struct CollectionIndex<K, V, T> {
-    count_trace: TraceKeyHandle<K, T, isize>,
-    propose_trace: TraceValHandle<K, V, T, isize>,
-    validate_trace: TraceKeyHandle<(K, V), T, isize>,
-}
-\end{lstlisting}
-
-These finer-grained index types map onto different use cases
-throughout 3DF, and allows us to avoid creating new arrangements
-during synthesis. For example, reading out an entire attribute is best
-served by the \texttt{validate\_trace}, whereas when joining two
-attributes using 3DFs existing \texttt{Join} stage, we can now re-use
-the appropriate traces:
-
-\begin{verbatim}
-(join [?a ?b] [?a ?c]) => (forward propose, forward propose)
-(join [?a ?b] [?c ?a]) => (forward propose, reverse propose)
-(join [?a ?b] [?a ?b ?c]) => (forward validate, new arrangement)
-...
-\end{verbatim}
-
-Although not client-configurable at the time of this writing, it makes
-sense to skip the reverse indices for certain attributes. An example
-would be one-way mappings used for string interning, or unary
-attributes indicating categorical features.
-
-\subsection{Lazy Synthesis} \label{lazy-synthesis}
-
-In chapter \ref{case-eagerness} we have seen that demand-driven
-synthesis of query plans is a pre-requisite to needlessly
-materializing rules which materialize large numbers of tuples, but
-would never even be used without other constraints of higher
-selectivity present.
-
-As explained in chapter \ref{3df}, 3DF used to synthesize all rules
-eagerly. Over the course of this work, we extended 3DF workers with a
-rule store. Upon receiving a \texttt{Register} request, workers now
-merely store the provided plan (assuming it doesn't clash with a known
-rule of the same name). Synthesis of a rule \texttt{q} will only
-happen, once the first \texttt{Interest} command for \texttt{q} is
-received.
-
-A few more changes were required. In particular, a mechanism to gather
-query dependencies had to be added. Queries can depend on attributes
-and on other rules (that were registered in advance). This captured by
-a simple struct:
-
-\begin{lstlisting}[language=Rust, style=colouredRust][h!]
-struct Dependencies {
-    // NameExpr's used by this plan.
-    names: HashSet<String>,
-    // Attributes queries in Match* expressions.
-    attributes: HashSet<Aid>,
-}
-\end{lstlisting}
-
-Like all other aspects of synthesis, \texttt{Dependency} structs are
-collected recursively starting at the leafs of the query plan (data
-patterns such as \texttt{MatchA} and references via
-\texttt{NameExpr}). The resulting set of rules requiring synthesis is
-brought into a canonical order, to ensure that the same exact dataflow
-graph is created on all workers. Redundant dependencies are removed.
-
-At this point a decision must be made for each named dependency (for
-which an existing arrangement is available), on whether to re-use the
-arrangement or resolve the dependency into its bindings and synthesize
-them from scratch. For the reasons explored in chapter
-\ref{case-redundant-dataflows}, the default policy is to always
-synthesize from scratch, re-using only attributes indices.
+In this chapter and the following, we will cover in greater detail the
+changes and extensions to 3DF, that we implemented over the course of
+this work. This chapter covers logging and other instrumentation that
+was added to perform the experiments, the move from eager to deferred
+synthesis, and support for multi-tenant dataflows, whereas the next
+chapter is dedicated to the implementation of delta queries and our
+worst-case optimal dataflow join operator.
 
 \subsection{Logging and Instrumentation} \label{logging}
 
-A fair bit of instrumentation is necessary in order to monitor the
+A fair bit of instrumentation was necessary in order to monitor the
 dataflow graph as it evolves over time, the number of tuples held in
-arrangements, and many other metrics.
+arrangements, and many other metrics. We built dataflow sources
+converting Timely's internal logging streams into higher-level log
+attributes and analyzed them interactively at run-time, using 3DF
+itself.
 
-To that end, Timely Dataflow provides an extensible set of internal
-dataflow streams, onto which internal events are published. Logged
-events include among others the creation, shutdown, and scheduling of
-operators, activity on communication channels, and progress tracking.
+Timely Dataflow provides an extensible set of internal dataflow
+streams, onto which internal events are published. Logged events
+include among others the creation, shutdown, and scheduling of
+operators, activity on communication channels, and progress
+tracking. Differential Dataflow uses the same subsystem to provide
+additional information about the creation and merging of trace
+batches. These are sufficient to infer, for any relevant time, the
+number of arranged tuples maintained at each arrangement in the
+dataflow.
 
-Differential Dataflow uses the same subsystem to provide additional
-information about the creation and merging of trace batches. These are
-sufficient to infer, for any relevant time, the number of arranged
-tuples maintained at each arrangement in the dataflow.
-
-Deriving relevant signals from the stream of logging events
-dynamically via 3DF's reactive query engine seemed like a natural
-fit. We created two new 3DF sources, \texttt{TimelyLogging} and
+3DF attributes can be fed by arbitrary data sources. This is
+facilitated by \emph{source} operators, which read from external data
+sources and convert inputs to one or more Timely streams. We created
+two new 3DF sources, \texttt{TimelyLogging} and
 \texttt{DifferentialLogging}.
 
 The \texttt{TimelyLogging} source allows clients to source only the
@@ -148,419 +59,140 @@ Taken together, this makes it easy to write queries such as the
 following, asking for the total number of tuples arranged at operators
 that haven't been shut down.
 
-\begin{verbatim}
+\begin{lstlisting}[language=datalog, style=colorlog]
 ;; total number of tuples arranged at alive operators
 
-[:find (sum ?size)
+[:find ?name (sum ?size)
  :where
  [?x :differential.event/size ?size]
+ [?x :timely.event.operates/name ?name]  
  (not [?x :timely.event.operates/shutdown? true])]
-\end{verbatim}
+\end{lstlisting}
 
-For making accurate measurements it also became necessary to
-side-step 3DFs default behaviour of forwarding results directly back
-to clients, as doing so would introduce serialization and network
-latency.
+For making accurate measurements it also became necessary to side-step
+3DFs default behaviour of forwarding results directly back to clients,
+as doing so would introduce serialization and network latency. We
+therefore introduced a new type of plan stages called \emph{sinks}, as
+well as a measurement sink implementation. This sink will swallow all
+its inputs and keep track of the computational frontier. Whenever the
+frontier advances (thus indicating the completion of a round of
+inputs), it will append the number of milliseconds since the close of
+the previous epoch to a logfile. It will also report whenever the
+frontier becomes empty, indicating the completion of the entire
+computation.
 
-We therefore introduced a simple new type of plan stages called
-\emph{sinks}, as well as a simple measurement sink called
-\texttt{TheVoid}. This sink will swallow all its inputs and keep track
-of the computational frontier. Whenever the frontier advances (thus
-indicating the completion of a round of inputs), \texttt{TheVoid} will
-append the number of milliseconds since the close of the previous
-epoch to a logfile.
-
-We then extended the \texttt{Interest} request to allow for an
+We then extended the 3DF API in order to allow clients to specify an
 optional sink configuration that, when provided, will cause 3DF to
 forgo forwarding results via WebSocket and instead process them with
-the specified sink.
-
-Finally, we extended the \texttt{Interest} request to allow for an
+the specified sink. Additionally, we extended the API to allow for an
 optional granularity (in seconds), indicating the maximum rate at
 which a client desires outputs. A granularity of one, for example,
 would cause outputs to be delayed and consolidated up to the next full
-second.
+second. This made it easy to monitor e.g. tuple counts on the live
+dataflow. Finally, we added an option to disable logging on queries,
+such as not to run into infinte loops when logging queries that
+consume the logging relations themselves.
 
-\subsection{Bindings} \label{bindings}
+\subsection{Lazy Synthesis} \label{lazy-synthesis}
 
-Over the course of this work it became evident that a few extensions
-to the query plan representation would be necessary to (a) better
-utilize the new primitive offered by worst-case optimal, n-way join
-processing and (b) canonicalize plan representation in order to expose
-more opportunities for sharing dataflows between multiple clients, as
-described in chapter \ref{case-redundant-dataflows}.
+In \autoref{case-eagerness} we have seen that demand-driven synthesis
+of query plans is a pre-requisite to avoid needlessly computing rules
+which might materialize large numbers of tuples, but which in practice
+would never be used without other constraints of higher selectivity
+present. Eager synthesis of queries limits the available plan space
+drastically. We changed 3DFs implementation strategy from eager to
+lazy, introducing a mechanism to track plan dependencies in the
+process.
 
-From the discussion in \cite{veldhuizen2012leapfrog} we learn that the
-Leapfrog Triejoin worst-case optimal join algorithm can be utilized to
-implement many common features of relational query engines:
-conjunctions (joins), disjunctions (unions), negations (antijoins),
-and filtering by various predicates. This is achieved by additional
-implementations of the core trie iterator interface. Similar
-extensions exist within the worst-case optimal dataflow-join framework
-due to \cite{ammar2018distributed}, which we have integrated into 3DF
-as part of this work.
+First, we split the existing query registration API into a two-step
+process: \emph{registration} and \emph{interest}. We extended 3DF
+worker state with a rule store. Upon receiving a registration request,
+workers now merely store the provided plan (assuming it doesn't clash
+with a known rule of the same name). A rule is only synthesised once
+the first interest request depending on it is received.
 
-Any participant in a worst-case optimal dataflow join must implement
-the \texttt{PrefixExtender} trait, which will be described in section
-\ref{impl-hector}. For the purposes of the query language, we will
-refer to such implementations as \emph{bindings}, for their property
-of binding possible values to variables. We've provided
-\texttt{PrefixExtender} implementations for attribute bindings,
-constants, binary predicates, and negation.
+Therefore, we added a mechanism to gather plan dependencies. Queries
+can depend on attributes and on other rules, that were registered in
+previous requests (maybe by other users). Like all other aspects of
+synthesis, dependencies are collected recursively, starting at the
+leafs of a query plan. The resulting set of rules requiring synthesis
+is brought into a canonical order, to ensure that the same exact
+dataflow graph is created on all workers. This is necessary, as Timely
+creates operator and channel identifiers based on their creation
+order. Redundant dependencies are removed.
 
-Some bindings, such as those modeling predicates and negation, are
-exclusively constraining (shrinking the space of possible values for a
-given variable), others, such as attributes and constants, can also
-provide values.
+At this point a decision can be made for each named dependency, for
+which an existing arrangement is available, on whether to re-use the
+arrangement or resolve the dependency into its bindings and
+re-synthesize them from scratch. For the reasons explored in chapter
+\ref{case-redundant-dataflows}, the default policy is to always
+synthesize from scratch, re-using only attributes indices.
 
-Converting between the existing clause language described in chapter
-\ref{3df} and this new language of bindings is straightforward. The
-basic data patterns translate as follows:
-
-\begin{verbatim}
-MatchA(?e, :a, ?v) => [attribute(?e, :a, ?v)]
-MatchEA(e, :a, ?v) => [attribute(?e, :a, ?v), constant(?e, e)]
-MatchAV(?e, :a, v) => [attribute(?e, :a, ?v), constant(?v, v)]
-\end{verbatim}
-
-The existing two-way join operator \texttt{Join(left, right)} is
-resolved as the union of resolving both child plans into their
-bindings.
-
-@TODO antijoin
-
-\texttt{Filter} plan stages map directly onto the corresponding
-\texttt{binary\_predicate} binding.
-
-Projections, aggregations, disjunctions, and functional transforms
-remain unchanged.
-
-\subsection{A Worst-Case Optimal N-Way Join Operator} \label{impl-hector}
-
-In order to be able to express the worst-case optimal join strategy
-explored throughout this work, a new query plan stage and
-corresponding operator implementation had to be added. We've based the
-present implementation off of \cite{dogsdogsdogs} and
-\cite{dataflowjoin}, which itself is an implementation of the
-\emph{Delta-BiGJoin} algorithm from \cite{ammar2018distributed}. The
-resulting operator is called \emph{Hector} and will be referred to as
-such throughout this chapter.
-
-At a high-level, the Hector operator provides the following
-capability: Given a set of bindings (as described in \ref{bindings})
-and a set of target variables, find all possible variable assignments
-that satisfy all bindings. The following Hector plan stage would
-therefore be sufficient to express a simple triangle query:
-
-\begin{verbatim}
-{:Hector
- {:variables [?a ?b ?c]
-  :bindings  [attribute(?a, :edge, ?b)
-              attribute(?b, :edge, ?c)
-              attribute(?a, :edge, ?c)]}}
-\end{verbatim}
-
-If no bindings are passed, Hector will throw an error. If a single
-binding is passed (which must be an \texttt{attribute} binding, as no
-other binding can provide tuples), Hector will merely perform a
-projection onto the target variables.
-
-If only two bindings are passed we have nothing to gain from the
-worst-case optimal strategy, because for each of the source bindings
-there will only be the one remaining binding left to propose
-anything. Similarly, we do not benefit from delta queries here,
-because a two-way join would not create any redundant intermediate
-arrangements (as described in chapter \ref{case-join-state}).
-
-For the general-arity case, Hector employs the delta query technique
-explained in chapter \ref{case-join-state}. This means that a separate
-dataflow will be constructed for each tuple-providing binding that may
-experience change. Only \texttt{attribute} bindings can provide tuples
-in our current implementation. By default, all attributes are assumed
-to experience change. Continuing with our example, Hector would
-therefore create three dataflows. For each of them, we will refer to
-the generating binding as the \emph{source binding} and to the
-corresponding dataflow as the \emph{delta pipeline}.
-
-\begin{verbatim}
-(1) d_edge(a, b) -> edge(b, c) -> edge(a, c)
-(2) d_edge(b, c) -> edge(a, b) -> edge(a, c)
-(3) d_edge(a, c) -> edge(a, b) -> edge(b, c)
-\end{verbatim}
-
-A worst-case optimal join picks an appropriate variable order (more on
-this crucial step later), along which a collection of prefixes
-(initially containing only the empty prefix) is extended to bind more
-and more symbols. While conceptually this is correct, it does not
-translate directly into the dataflow setting. Dataflows must always
-start with some source of input. In our case, the finest grained
-source of input available are tuple-providing bindings, i.e. the
-\texttt{attribute} binding — which already binds two symbols!
-
-In order to consider changes to each individual variable separately,
-we could break attributes further down into unified input collections
-for each of their constituent variables. But this would have to be
-done in a separate dataflow for each combination of bindings. Instead,
-we would like to start with attribute inputs, and thus with prefixes
-of length two.
-
-In order to get away with this we must make sure to handle conflicts
-on the variables of each source binding. Consider a Hector plan stage
-involving (possibly amongst others) both an \texttt{attribute(?user,
-  :user/name, ?name)} and a \texttt{constant(?name, "Alice")}
-binding. When creating the delta pipeline starting from the
-\texttt{:user/name} attribute, we would never give the constant
-binding a chance to narrow down the collection of all usernames to
-just those equal to "Alice".
-
-It is straightforward to detect such conflicts for a given source
-binding, as we can look for any of the remaining bindings for which
-all of their variables are already bound by the prefix. In our
-example, the constant binding binds only \texttt{?name}, which is
-already bound by the prefix \texttt{[?user ?name]}.
-
-The same can happen for attribute bindings. Consider
-\texttt{attribute(?a, :edge, ?b)} and \texttt{attribute(?b, :edge,
-  ?a)}, bindings which express a symmetry constraint between two nodes
-in a directed graph. Sourcing the first attribute would lead to
-\texttt{[?a ?b]} prefixes, and vice versa. In both cases, the other
-binding would never get a chance to participate in prefix extension.
-
-In our current implementation, Hector detects all conflicts, but only
-handles those with constant bindings. This is done by filtering the
-source binding accordingly.
-
-For the following we will again assume that a suitable variable order
-is at hand. We look at the variable order, and the variables bound by
-the current prefix and determine from that the next variable $x$, to
-which prefixes should be extended. Ignoring the source binding, we
-then filter all other bindings down to only those that bind ("talk
-about") $x$. Here we also skip bindings that are not \emph{ready} to
-participate in prefix extension to $x$.
-
-For example: an \texttt{attribute(?e, :a, ?v)} binding is \emph{ready}
-to extend a prefix, which already binds \texttt{?e}, to \texttt{?v}
-and vice versa. It is \emph{not ready} to extend a prefix such as
-\texttt{[?a ?b ?c]} onto either \texttt{?e} or \texttt{?v}. In
-contrast, a \texttt{constant(?c 123)} binding is \emph{always} ready
-to extend any prefix to \texttt{?c}. Intuitively, a binding $B$ is
-ready to participate in an extension of prefix $p$ to variable $x$,
-iff $B$ binds $x$ and could do better than proposing \emph{all} of its
-values for $x$. This is the same intuition behind the need to avoid
-join orderings that would require computing the cartesian product of
-two relations.
-
-From the set of relevant, ready bindings we derive a set of prefix
-extenders. Each binding type corresponds to a prefix extender
-implementation. Our extender implementations are detailed in the next
-subsection. Extenders participate in a three-step process:
-
-\textbf{Count} In the count step we determine for each source prefix
-the extender that will propose the fewest extensions for it. This is
-done by passing a stream of \texttt{(prefix count extender\_idx)}
-through each extender's \texttt{count} operator. Initially all counts
-are set to infinity. The count step results in a stream of
-\emph{nominations} for each extender (prefixes for which the
-respective extender has ``won the bid'').
-
-\textbf{Propose} Nomination streams are passed through their
-respective extender's \texttt{propose} operator. Propose
-implementations materialize the extensions they counted in the
-previous step and output a stream of \texttt{(prefix extension)}
-pairs.
-
-\textbf{Validate} Each extender's proposals are validated by all other
-extenders. This is done by passing the stream of proposed pairs
-through each extender's \texttt{validate} operator. Intuitively,
-validate implementations compute the intersection of the set of
-proposals with extensions that they themselves would have proposed,
-had they been nominated to extend.
-
-The output streams from the validation stage are concatenated together
-and will form the stream of input prefixes for the next extension
-stage. After the final stage, an additional projection onto the
-variables requested by the user is performed.
-
-\subsubsection{Prefix Extender Implementations}
-
-Prefix extenders must provide \texttt{count}, \texttt{propose}, and
-\texttt{validate} operators. While conceptually simple, these
-implementations must not break the worst-case optimality, meaning that
-they can only do work proportional to the lowest number of extensions
-proposed by any of them (for a given extension stage).
-
-The count operator must therefore avoid materializing and counting all
-proposals, as doing so for every extender would immediately violate
-the worst-case optimality. Implementations like Leapfrog TrieJoin and
-our own will accept count implementations that take logarithmic time
-(e.g. looking up prefixes in a suitable index).
-
-As long as only the winning extender is asked to propose, the propose
-implementation must only make sure to propose tuples with constant
-delay.
-
-A naive validation implementation might materialize all of its
-proposals and compute the set intersection. This of course violates
-worst-case optimality. However we may again take logarithmic time to
-lookup proposed extensions in an index.
-
-\textbf{CollectionExtender} \cite{dogsdogsdogs} gives an
-implementation of a prefix extender for Differential collections of
-key-value pairs, which we have largely adapted as is to implement
-prefix extension for 3DF attributes. The resulting implementation
-maintains attributes across three separate indices (count, propose,
-and validate) backed by Differential arrangements. Arrangements
-support lookups in logarithmic time.
-
-\textbf{ConstantExtender} Prefix extension for constant bindings is
-not backed by data other than the constant value. The count
-implementation simply issues a count of one for each prefix. Propose
-proposes for each prefix the constant value. Finally validate filters
-the stream of proposed extensions to only include those which match
-the constant value.
-
-\textbf{BinaryPredicateExtender} Prefix extension for binary predicate
-bindings is again not backed by data. Predicate extenders can never be
-asked to propose, because it would have to propose infinitely many
-extensions. The count implementation is therefore a noop, whereas the
-propose implementation causes a runtime error, should the predicate
-extender receive a nomination. The validate implementation will apply
-the desired predicate to each proposed extension and to the prefix
-offset binding the second argument.
-
-\textbf{AntijoinExtender} Antijoin extenders implement negation as set
-difference and thus wrap any other extender. Due to the stratification
-requirement, antijoin extenders must not be asked to propose, and thus
-implement count as a noop and propose as a runtime error. During
-validation, antijoin extenders will subtract all extensions that the
-wrapped extender has validated from the result stream.
-
-\subsubsection{Suitable Variable Orderings}
-
-We have deferred the problem of choosing a suitable variable
-ordering. The notion of \emph{readiness} allows us to define a
-suitable ordering as one that includes all variables bound by any of
-the participating bindings and which ensures that for each variable
-$v$ there exists at least one binding ready to extend a prefix made up
-out of the variables up to $v$, to $v$ itself. Therefore, given the
-following bindings:
-
-\begin{verbatim}
-attribute(?a, :knows, ?b)
-attribute(?b, :knows, ?c)
-attribute(?c, :knows, ?d)
-attribute(?a, :knows, ?d)
-\end{verbatim}
-
-\texttt{[?a ?b ?c ?d ?e]} would be a suitable order, whereas
-\texttt{[?a ?c ?b ?d]} would'nt, because none of the bindings can
-extend the prefix \texttt{[?a]} to \texttt{?c}.
-
-Within the subset of \emph{suitable} orderings, there is the more
-involved question of finding an \emph{optimal} ordering. Given the
-bindings above and starting with the prefix \texttt{[?a ?b]}, it would
-be equally valid to extend first to \texttt{?c} and then to
-\texttt{?d} or vice versa.
-
-Finding the optimal variable ordering is beyond the scope of this
-work, but treated extensively in \cite{abo2016faq}.
-
-\subsubsection{Lexicographic Timestamps} \label{impl-altneu}
-
-All delta pipelines are executed concurrently at the dataflow
-level. This can lead to inconsistencies as we might derive the same
-output change on multiple pipelines, when sources change
-concurrently.
-
-Assume for example we have a graph, initially containing only a single
-edge $(100,300)$, and two delta pipelines:
-
-\begin{verbatim}
-(I) d(a,b) -> (b,c) -> (a,c)
-(II) d(b,c) -> (a,b) -> (a,c)
-\end{verbatim}
-
-At some logical time $t$ we then input two new edges
-$((100,200),t,+1)$ and $((200,300),t,+1)$. Crucially, both inputs are
-then logically available in all relations at time $t$. Along pipeline
-(I), the input edge $(100,200)$ will therefore match the indexed edge
-$(200,300)$ and thus cause the derivation of a single output change
-$((100,200,300),t,+1)$. Correspondingly, along pipeline (II) the input
-edge $(200,300)$ will match the indexed edge $(100,200)$, leading to a
-now redundant output change $((100,200,300),t,+1)$.
-
-To prevent this, we must impose an arbitrary logical order on the
-computation. In particular, we must ensure that input changes are not
-logically available at all relations simultaneously (even though
-physically, they might already be indexed). For this we fix an
-arbitrary sequential order, e.g. $(a,b),(b,c),(a,c)$.
-
-Delta pipelines are therefore created within a new, nested scope using
-a modified, lexicographic timestamp type. Timestamps $t$ along each
-pipeline are extended to $(t,a \in {0,1})$, where $a$ is a boolean
-indicating the relative position of the source binding and the
-extending relation. These extended timestamps are ordered
-lexicographically, ensuring in particular that $(t,0) <
-(t,1)$. Attribute arrangements are imported and wrapped with their
-corresponding timestamps. We cache imported arrangements to prevent
-redundant imports.
-
-Revisiting the scenario from above, the input edges would now be
-logically available in relation $(b,c)$ on pipeline (II), but not on
-pipeline (I), because $(b,c)$ appears after $(a,b)$ in the relation
-order. Accordingly, only pipeline (II) would now derive the correct
-output change.
+With these changes, clients can define complex queries interactively,
+across many different rules, without bringing the system to a
+halt. Storing plan representations has other benefits, which we might
+explore in future work. In particular, such a representation could be
+used to dynamically query the implied graph of rule dependencies and
+correlate it with the synthesized dataflow graph, whose structure can
+be derived from the logging stream, as explained in the previous
+section.
 
 \subsection{Multi-tenant Routing}
 
-In chapter \ref{case-redundant-dataflows} we saw that multi-tenant
+In \autoref{case-redundant-dataflows} we saw that multi-tenant
 dataflows, where applicable, allow us to serve many clients without
-creating additional dataflow elements. Our current implementation is
-not fully automated, in that it requires co-operation from the
-clients.
+creating additional dataflow elements, and without limiting the
+optimization potential of the overall dataflow. We added a new routing
+strategy, in order to support such multi-tenant dataflows in 3DF. Our
+current implementation is not automated, in that it requires clients
+to indicate which dataflows they would like to share.
 
-Multi-tenancy is achieved by tagging inputs with a token, uniquely
-identifying the tenant it originated from. This way, the corresponding
-results can be routed appropriately, such that any given tenant only
-sees the results that are of interest to them. Our current
-implementation re-uses the connection tokens assigned by the WebSocket
-server. Client tokens are unsigned 64-bit integers.
+In order to be dynamically parameterizable at runtime, a query's fixed
+parameters must first be replaced by joins on special parameter
+relations. E.g.
 
-Inputs are associated via parameter relations, where each tenant $t_i$
-inputs their parameters $p_1, ..., p_n$ as pairs
-$(t_i,p_1),...,(t_i,p_n)$. Assuming then a query such as the
-following:
+\begin{lstlisting}[language=datalog, style=colorlog]
+;; static
+[:find ?speed
+ :where [<x> :device/speed ?speed]]  
 
-\begin{verbatim}
+;; dynamic
+[:find ?device ?speed
+ :where
+ [?device :device/speed ?speed]
+ [_ :param/device ?device]]
+\end{lstlisting}
+
+We achieve multi-tenancy by tagging inputs on parameter relations with
+a token, uniquely identifying a tenant. Client tokens are also
+included as part of the output projection. Tenants register their
+interest, indicating the offset at which tenant tokens are to be found
+within the output tuples.
+
+\begin{lstlisting}[language=datalog, style=colorlog]
 [:find ?tenant ?device ?speed
  :where
  [?device :device/speed ?speed]
  [?tenant :param/device ?device]]
-\end{verbatim}
-
-Tenants register their interest, indicating the offset at which tenant
-tokens are to be found within the output tuples.
-
-\begin{lstlisting}[language=json][h!]
-{:Interest {:query q :tenant 0}}
 \end{lstlisting}
+
+What remains is the correct routing of results back to clients,
+according to the tenant token in each output tuple. This way, a given
+tenant only sees the results that are of interest to them. Our current
+implementation re-uses the connection tokens assigned by the WebSocket
+server. Client tokens are unsigned 64-bit integers.
 
 Timely Dataflow makes use of \emph{exchange pacts} to define how data
 is routed between operators. For single-tenant dataflows, all workers
 therefore must be aware of which of them maintains the client
 connection. For a given request, we call this worker the
-\emph{owner}. Dataflow results are then exchanged using the following
-pact, which simply routes all data to the owning worker:
-
-\begin{lstlisting}[language=Rust, style=colouredRust][h!]
-Exchange::new(move |_| owner as u64)
-\end{lstlisting}
-
-Each worker additionally maintains a mapping of query names to the
-client tokens, which have expressed interest in receiving results from
-that query. As long as all relevant results are exchanged correctly to
-the owning worker, all interested clients will therefore receive
-copies.
+\emph{owner}. Dataflow results are then exchanged using a static
+policy (w.r.t to the dataflow's data plane), which routes every output
+tuple to the owner. Each worker additionally maintains a mapping of
+query names to the client tokens, which have expressed interest in
+receiving results from that query. As long as all relevant results are
+exchanged correctly to the owning worker, all interested clients will
+therefore receive copies.
 
 Knowledge about the owner is broadcasted during \emph{sequencing}, a
 synchronizing dataflow into which all workers input all requests
@@ -569,19 +201,12 @@ the sequence of commands in the exact same order. Workers tag requests
 that they have received from a client with their own worker id, before
 broadcasting them via the sequencing dataflow.
 
-Exchange logic becomes somewhat more involved in the multi-tenant
-setting, because the routing decisions are now data dependent. Workers
-must also maintain a mapping of tenants to their owning workers. New
-entries into this mapping are created on \texttt{Interest} requests,
-and removed upon \texttt{Disconnect} requests. Owning workers must
-take care to broadcast appropriate \texttt{Disconnect} requests,
-whenever any of their clients disconnects.
-
-\begin{lstlisting}[language=Rust, style=colouredRust][h!]
-Exchange::new(move |(tuple, t, diff)| {
-    let tenant = tuple[tenant_offset];
-    tenant_owner.borrow().get(&Token(tenant as usize))
-})
-\end{lstlisting}
+In the multi-tenant setting, the routing policy is no longer static,
+but rather data dependent. Workers must therefore maintain a mapping
+of tenants to their owning workers. New entries into this mapping are
+created on interest requests, and removed whenever clients disconnect
+or issue a uninterest request. Owning workers broadcast notifiations,
+whenever any of their clients disconnects, s.t. all other workers may
+clean up their mappings.
 
 \end{document}

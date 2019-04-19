@@ -1,0 +1,392 @@
+\documentclass[../index.tex]{subfiles}
+
+\begin{document}
+
+\subsection{Indexing}
+
+Throughout this work we have often mentioned that base relations are
+maintained in an indexed form that is shared across all dataflows. This 
+
+In order to make use of the worst-case optimal dataflow-join framework
+described in section \ref{case-join-ordering} we could no longer
+maintain attributes as just an arranged collection of \texttt{(e v)}
+pairs. The implementation of the \texttt{PrefixExtender} trait
+(described later in section \ref{impl-hector}) for attributes requires
+two additional traces, one to keep track of the number of extensions
+the attribute would propose for a given prefix and a trace indexed in
+a way suitable to efficiently validate proposals made by other
+extenders.
+
+Additionally, attributes might be placed at a stage in the delta query
+pipeline, at which prefixes already bind the value symbol. In that
+case, reversed versions of all three of the above arrangements must be
+at hand.
+
+We therefore introduced a \texttt{CollectionIndex} structure which
+holds all three arrangements for a given direction and a given
+attribute. 3DF workers maintain separate mappings from attribute names
+to their forward and reverse collection indices. This simplifies the
+types and ownership involved. Collection indices implement a subset of
+Differential's arrangement API: an \texttt{import} method for
+importing all internal traces into a top-level scope, as well as an
+\texttt{enter\_at} method to bring all imported internal arrangements
+into a nested scope with an additional timestamp co-ordinate.
+
+\begin{lstlisting}[language=Rust, style=colouredRust][h!]
+struct CollectionIndex<K, V, T> {
+    count_trace: TraceKeyHandle<K, T, isize>,
+    propose_trace: TraceValHandle<K, V, T, isize>,
+    validate_trace: TraceKeyHandle<(K, V), T, isize>,
+}
+\end{lstlisting}
+
+These finer-grained index types map onto different use cases
+throughout 3DF, and allows us to avoid creating new arrangements
+during synthesis. For example, reading out an entire attribute is best
+served by the \texttt{validate\_trace}, whereas when joining two
+attributes using 3DFs existing \texttt{Join} stage, we can now re-use
+the appropriate traces:
+
+\begin{verbatim}
+(join [?a ?b] [?a ?c]) => (forward propose, forward propose)
+(join [?a ?b] [?c ?a]) => (forward propose, reverse propose)
+(join [?a ?b] [?a ?b ?c]) => (forward validate, new arrangement)
+...
+\end{verbatim}
+
+Although not client-configurable at the time of this writing, it makes
+sense to skip the reverse indices for certain attributes. An example
+would be one-way mappings used for string interning, or unary
+attributes indicating categorical features.
+
+\subsection{Bindings} \label{bindings}
+
+Over the course of this work it became evident that a few extensions
+to the query plan representation would be necessary to (a) better
+utilize the new primitive offered by worst-case optimal, n-way join
+processing and (b) canonicalize plan representation in order to expose
+more opportunities for sharing dataflows between multiple clients, as
+described in chapter \ref{case-redundant-dataflows}.
+
+From the discussion in \cite{veldhuizen2012leapfrog} we learn that the
+Leapfrog Triejoin worst-case optimal join algorithm can be utilized to
+implement many common features of relational query engines:
+conjunctions (joins), disjunctions (unions), negations (antijoins),
+and filtering by various predicates. This is achieved by additional
+implementations of the core trie iterator interface. Similar
+extensions exist within the worst-case optimal dataflow-join framework
+due to \cite{ammar2018distributed}, which we have integrated into 3DF
+as part of this work.
+
+Any participant in a worst-case optimal dataflow join must implement
+the \texttt{PrefixExtender} trait, which will be described in section
+\ref{impl-hector}. For the purposes of the query language, we will
+refer to such implementations as \emph{bindings}, for their property
+of binding possible values to variables. We've provided
+\texttt{PrefixExtender} implementations for attribute bindings,
+constants, binary predicates, and negation.
+
+Some bindings, such as those modeling predicates and negation, are
+exclusively constraining (shrinking the space of possible values for a
+given variable), others, such as attributes and constants, can also
+provide values.
+
+Converting between the existing clause language described in chapter
+\ref{3df} and this new language of bindings is straightforward. The
+basic data patterns translate as follows:
+
+\begin{verbatim}
+MatchA(?e, :a, ?v) => [attribute(?e, :a, ?v)]
+MatchEA(e, :a, ?v) => [attribute(?e, :a, ?v), constant(?e, e)]
+MatchAV(?e, :a, v) => [attribute(?e, :a, ?v), constant(?v, v)]
+\end{verbatim}
+
+The existing two-way join operator \texttt{Join(left, right)} is
+resolved as the union of resolving both child plans into their
+bindings.
+
+@TODO antijoin
+
+\texttt{Filter} plan stages map directly onto the corresponding
+\texttt{binary\_predicate} binding.
+
+Projections, aggregations, disjunctions, and functional transforms
+remain unchanged.
+
+\subsection{A Worst-Case Optimal N-Way Join Operator} \label{impl-hector}
+
+In order to be able to express the worst-case optimal join strategy
+explored throughout this work, a new query plan stage and
+corresponding operator implementation had to be added. We've based the
+present implementation off of \cite{dogsdogsdogs} and
+\cite{dataflowjoin}, which itself is an implementation of the
+\emph{Delta-BiGJoin} algorithm from \cite{ammar2018distributed}. The
+resulting operator is called \emph{Hector} and will be referred to as
+such throughout this chapter.
+
+At a high-level, the Hector operator provides the following
+capability: Given a set of bindings (as described in \ref{bindings})
+and a set of target variables, find all possible variable assignments
+that satisfy all bindings. The following Hector plan stage would
+therefore be sufficient to express a simple triangle query:
+
+\begin{verbatim}
+{:Hector
+ {:variables [?a ?b ?c]
+  :bindings  [attribute(?a, :edge, ?b)
+              attribute(?b, :edge, ?c)
+              attribute(?a, :edge, ?c)]}}
+\end{verbatim}
+
+If no bindings are passed, Hector will throw an error. If a single
+binding is passed (which must be an \texttt{attribute} binding, as no
+other binding can provide tuples), Hector will merely perform a
+projection onto the target variables.
+
+If only two bindings are passed we have nothing to gain from the
+worst-case optimal strategy, because for each of the source bindings
+there will only be the one remaining binding left to propose
+anything. Similarly, we do not benefit from delta queries here,
+because a two-way join would not create any redundant intermediate
+arrangements (as described in chapter \ref{case-join-state}).
+
+For the general-arity case, Hector employs the delta query technique
+explained in chapter \ref{case-join-state}. This means that a separate
+dataflow will be constructed for each tuple-providing binding that may
+experience change. Only \texttt{attribute} bindings can provide tuples
+in our current implementation. By default, all attributes are assumed
+to experience change. Continuing with our example, Hector would
+therefore create three dataflows. For each of them, we will refer to
+the generating binding as the \emph{source binding} and to the
+corresponding dataflow as the \emph{delta pipeline}.
+
+\begin{verbatim}
+(1) d_edge(a, b) -> edge(b, c) -> edge(a, c)
+(2) d_edge(b, c) -> edge(a, b) -> edge(a, c)
+(3) d_edge(a, c) -> edge(a, b) -> edge(b, c)
+\end{verbatim}
+
+A worst-case optimal join picks an appropriate variable order (more on
+this crucial step later), along which a collection of prefixes
+(initially containing only the empty prefix) is extended to bind more
+and more symbols. While conceptually this is correct, it does not
+translate directly into the dataflow setting. Dataflows must always
+start with some source of input. In our case, the finest grained
+source of input available are tuple-providing bindings, i.e. the
+\texttt{attribute} binding — which already binds two symbols!
+
+In order to consider changes to each individual variable separately,
+we could break attributes further down into unified input collections
+for each of their constituent variables. But this would have to be
+done in a separate dataflow for each combination of bindings. Instead,
+we would like to start with attribute inputs, and thus with prefixes
+of length two.
+
+In order to get away with this we must make sure to handle conflicts
+on the variables of each source binding. Consider a Hector plan stage
+involving (possibly amongst others) both an \texttt{attribute(?user,
+  :user/name, ?name)} and a \texttt{constant(?name, "Alice")}
+binding. When creating the delta pipeline starting from the
+\texttt{:user/name} attribute, we would never give the constant
+binding a chance to narrow down the collection of all usernames to
+just those equal to "Alice".
+
+It is straightforward to detect such conflicts for a given source
+binding, as we can look for any of the remaining bindings for which
+all of their variables are already bound by the prefix. In our
+example, the constant binding binds only \texttt{?name}, which is
+already bound by the prefix \texttt{[?user ?name]}.
+
+The same can happen for attribute bindings. Consider
+\texttt{attribute(?a, :edge, ?b)} and \texttt{attribute(?b, :edge,
+  ?a)}, bindings which express a symmetry constraint between two nodes
+in a directed graph. Sourcing the first attribute would lead to
+\texttt{[?a ?b]} prefixes, and vice versa. In both cases, the other
+binding would never get a chance to participate in prefix extension.
+
+In our current implementation, Hector detects all conflicts, but only
+handles those with constant bindings. This is done by filtering the
+source binding accordingly.
+
+For the following we will again assume that a suitable variable order
+is at hand. We look at the variable order, and the variables bound by
+the current prefix and determine from that the next variable $x$, to
+which prefixes should be extended. Ignoring the source binding, we
+then filter all other bindings down to only those that bind ("talk
+about") $x$. Here we also skip bindings that are not \emph{ready} to
+participate in prefix extension to $x$.
+
+For example: an \texttt{attribute(?e, :a, ?v)} binding is \emph{ready}
+to extend a prefix, which already binds \texttt{?e}, to \texttt{?v}
+and vice versa. It is \emph{not ready} to extend a prefix such as
+\texttt{[?a ?b ?c]} onto either \texttt{?e} or \texttt{?v}. In
+contrast, a \texttt{constant(?c 123)} binding is \emph{always} ready
+to extend any prefix to \texttt{?c}. Intuitively, a binding $B$ is
+ready to participate in an extension of prefix $p$ to variable $x$,
+iff $B$ binds $x$ and could do better than proposing \emph{all} of its
+values for $x$. This is the same intuition behind the need to avoid
+join orderings that would require computing the cartesian product of
+two relations.
+
+From the set of relevant, ready bindings we derive a set of prefix
+extenders. Each binding type corresponds to a prefix extender
+implementation. Our extender implementations are detailed in the next
+subsection. Extenders participate in a three-step process:
+
+\textbf{Count} In the count step we determine for each source prefix
+the extender that will propose the fewest extensions for it. This is
+done by passing a stream of \texttt{(prefix count extender\_idx)}
+through each extender's \texttt{count} operator. Initially all counts
+are set to infinity. The count step results in a stream of
+\emph{nominations} for each extender (prefixes for which the
+respective extender has ``won the bid'').
+
+\textbf{Propose} Nomination streams are passed through their
+respective extender's \texttt{propose} operator. Propose
+implementations materialize the extensions they counted in the
+previous step and output a stream of \texttt{(prefix extension)}
+pairs.
+
+\textbf{Validate} Each extender's proposals are validated by all other
+extenders. This is done by passing the stream of proposed pairs
+through each extender's \texttt{validate} operator. Intuitively,
+validate implementations compute the intersection of the set of
+proposals with extensions that they themselves would have proposed,
+had they been nominated to extend.
+
+The output streams from the validation stage are concatenated together
+and will form the stream of input prefixes for the next extension
+stage. After the final stage, an additional projection onto the
+variables requested by the user is performed.
+
+\subsubsection{Prefix Extender Implementations}
+
+Prefix extenders must provide \texttt{count}, \texttt{propose}, and
+\texttt{validate} operators. While conceptually simple, these
+implementations must not break the worst-case optimality, meaning that
+they can only do work proportional to the lowest number of extensions
+proposed by any of them (for a given extension stage).
+
+The count operator must therefore avoid materializing and counting all
+proposals, as doing so for every extender would immediately violate
+the worst-case optimality. Implementations like Leapfrog TrieJoin and
+our own will accept count implementations that take logarithmic time
+(e.g. looking up prefixes in a suitable index).
+
+As long as only the winning extender is asked to propose, the propose
+implementation must only make sure to propose tuples with constant
+delay.
+
+A naive validation implementation might materialize all of its
+proposals and compute the set intersection. This of course violates
+worst-case optimality. However we may again take logarithmic time to
+lookup proposed extensions in an index.
+
+\textbf{CollectionExtender} \cite{dogsdogsdogs} gives an
+implementation of a prefix extender for Differential collections of
+key-value pairs, which we have largely adapted as is to implement
+prefix extension for 3DF attributes. The resulting implementation
+maintains attributes across three separate indices (count, propose,
+and validate) backed by Differential arrangements. Arrangements
+support lookups in logarithmic time.
+
+\textbf{ConstantExtender} Prefix extension for constant bindings is
+not backed by data other than the constant value. The count
+implementation simply issues a count of one for each prefix. Propose
+proposes for each prefix the constant value. Finally validate filters
+the stream of proposed extensions to only include those which match
+the constant value.
+
+\textbf{BinaryPredicateExtender} Prefix extension for binary predicate
+bindings is again not backed by data. Predicate extenders can never be
+asked to propose, because it would have to propose infinitely many
+extensions. The count implementation is therefore a noop, whereas the
+propose implementation causes a runtime error, should the predicate
+extender receive a nomination. The validate implementation will apply
+the desired predicate to each proposed extension and to the prefix
+offset binding the second argument.
+
+\textbf{AntijoinExtender} Antijoin extenders implement negation as set
+difference and thus wrap any other extender. Due to the stratification
+requirement, antijoin extenders must not be asked to propose, and thus
+implement count as a noop and propose as a runtime error. During
+validation, antijoin extenders will subtract all extensions that the
+wrapped extender has validated from the result stream.
+
+\subsubsection{Suitable Variable Orderings}
+
+We have deferred the problem of choosing a suitable variable
+ordering. The notion of \emph{readiness} allows us to define a
+suitable ordering as one that includes all variables bound by any of
+the participating bindings and which ensures that for each variable
+$v$ there exists at least one binding ready to extend a prefix made up
+out of the variables up to $v$, to $v$ itself. Therefore, given the
+following bindings:
+
+\begin{verbatim}
+attribute(?a, :knows, ?b)
+attribute(?b, :knows, ?c)
+attribute(?c, :knows, ?d)
+attribute(?a, :knows, ?d)
+\end{verbatim}
+
+\texttt{[?a ?b ?c ?d ?e]} would be a suitable order, whereas
+\texttt{[?a ?c ?b ?d]} would'nt, because none of the bindings can
+extend the prefix \texttt{[?a]} to \texttt{?c}.
+
+Within the subset of \emph{suitable} orderings, there is the more
+involved question of finding an \emph{optimal} ordering. Given the
+bindings above and starting with the prefix \texttt{[?a ?b]}, it would
+be equally valid to extend first to \texttt{?c} and then to
+\texttt{?d} or vice versa.
+
+Finding the optimal variable ordering is beyond the scope of this
+work, but treated extensively in \cite{abo2016faq}.
+
+\subsubsection{Lexicographic Timestamps} \label{impl-altneu}
+
+All delta pipelines are executed concurrently at the dataflow
+level. This can lead to inconsistencies as we might derive the same
+output change on multiple pipelines, when sources change
+concurrently.
+
+Assume for example we have a graph, initially containing only a single
+edge $(100,300)$, and two delta pipelines:
+
+\begin{verbatim}
+(I) d(a,b) -> (b,c) -> (a,c)
+(II) d(b,c) -> (a,b) -> (a,c)
+\end{verbatim}
+
+At some logical time $t$ we then input two new edges
+$((100,200),t,+1)$ and $((200,300),t,+1)$. Crucially, both inputs are
+then logically available in all relations at time $t$. Along pipeline
+(I), the input edge $(100,200)$ will therefore match the indexed edge
+$(200,300)$ and thus cause the derivation of a single output change
+$((100,200,300),t,+1)$. Correspondingly, along pipeline (II) the input
+edge $(200,300)$ will match the indexed edge $(100,200)$, leading to a
+now redundant output change $((100,200,300),t,+1)$.
+
+To prevent this, we must impose an arbitrary logical order on the
+computation. In particular, we must ensure that input changes are not
+logically available at all relations simultaneously (even though
+physically, they might already be indexed). For this we fix an
+arbitrary sequential order, e.g. $(a,b),(b,c),(a,c)$.
+
+Delta pipelines are therefore created within a new, nested scope using
+a modified, lexicographic timestamp type. Timestamps $t$ along each
+pipeline are extended to $(t,a \in {0,1})$, where $a$ is a boolean
+indicating the relative position of the source binding and the
+extending relation. These extended timestamps are ordered
+lexicographically, ensuring in particular that $(t,0) <
+(t,1)$. Attribute arrangements are imported and wrapped with their
+corresponding timestamps. We cache imported arrangements to prevent
+redundant imports.
+
+Revisiting the scenario from above, the input edges would now be
+logically available in relation $(b,c)$ on pipeline (II), but not on
+pipeline (I), because $(b,c)$ appears after $(a,b)$ in the relation
+order. Accordingly, only pipeline (II) would now derive the correct
+output change.
+
+\end{document}
