@@ -13,16 +13,16 @@ traditional assumptions (uniformity, uncorrelated join predicates,
 overlapping key domains, and full access to meaningful statistics) can
 not effectively avoid disastrous plans on long-lived query plans.
 
-We would like to take a defensive approach that makes disastrous plans
-impossible, even if at the expense of best- and average-case
-performance. The reasons for this are two-fold: first, and most
-importantly, disastrous query plans violate all three of the desired
-properties outlined in \autoref{problem}. Second, from our experiences
-with 3DF itself, and from experiences with other declarative systems
-such as the Prolog language, we know that the mere \emph{possibility}
-of unpredictable, severe performance degradations break the
-fundamental promise of the declarative abstraction, and force users to
-reason defensively about the system runtime.
+We would like to take an adaptive, defensive approach that makes
+disastrous plans impossible, even if at the expense of best- and
+average-case performance. The reasons for this are two-fold: first,
+and most importantly, disastrous query plans violate all three of the
+desired properties outlined in \autoref{problem}. Second, from our
+experiences with 3DF itself, and from experiences with other
+declarative systems such as the Prolog language, we know that the mere
+\emph{possibility} of unpredictable, severe performance degradations
+break the fundamental promise of the declarative abstraction, and
+force users to reason defensively about the system runtime.
 
 \subsection{Example}
 
@@ -81,79 +81,119 @@ class. These algorithms distinguish themselves from traditional
 approaches, by checking cardinalities for individual tuples. They can
 thus ensure that any extension of a set of prefixes to a new variable
 will look at the smallest number of tuples, even in the face of
-correlated or non-uniformly distributed relations.
+correlated or non-uniformly distributed relations. Of particular
+interest to our setting is the \emph{Delta-BiGJoin} family of
+algorithms due to \cite{ammar2018distributed}, which are designed for
+the distributed, data-parallel dataflow setting. Delta-BiGJoin
+utilizes the same delta query technique covered in the previous
+chapter.
 
-For many average- and best-case queries however, sub-optimal join
-orderings have an adverse effect on performance that, although not
-asymptotically worse, is significant in practice. In these cases, the
-variable order chosen by a wco join algorithm matters much more.
+An exemplary delta query extending changes on a relation $(a,b)$ to
+valid $(a,b,c)$ tuples is illustrated in
+\autoref{fig:wco-illustration}. The extension is split across three
+steps, \emph{count}, \emph{propose}, and \emph{validate}. Each step is
+reminiscent of adaptive operators such as eddies, in that it
+dynamically routes inputs between multiple candidate relations. To be
+considered a candidate, a relation must bind the target variable ($c$
+in this case) and one of the prefix variables ($a$ or $b$).
 
-For example, given prefixes \texttt{[?a ?b]} and relations \texttt{[?a
-    :r1 ?c], [?a :r2 ?d]}, we might choose to first extend to
-\texttt{?c} via \texttt{:r1}, or instead to \texttt{?d} via
-\texttt{:r2}. Choosing one over the other has no bearing on the
-asymptotic result set bound. Still, for non-uniformly distributed
-relations, some prefixes might produce many more matches in
-\texttt{:r1}, whereas for others it would be the other way
-around. Picking the optimal variable order is thus again a
-data-dependent cardinality estimation problem, if one with a better
-safety net.
+During counting, the input tuple is routed through all candidate
+relations, s.t. they may provide the number of extensions that they
+\emph{would} propose, would they be asked to do so. Accordingly,
+during propose, we route the input tuple to the candidate that
+proposed the fewest extensions. Finally, in validate, we intersect the
+winning candidate's proposals with all other candidates, leaving us
+with all valid $(a,b,c)$ for that specific prefix. These steps are
+performed for each input tuple and ensure that no more tuples are
+materialized than could possibly be part of the result set.
 
-Further, wco algorithms perform significantly more work per tuple,
-than traditional two-way joins. For example, at each extension stage,
-each tuple requires multiple index lookups in order to determine the
-optimal extension strategy.
+By composing this extension primitive, this approach can be
+generalized to joins of arbitrary arity. By taking the union across
+separate count-propose-validate delta queries we obtain again an
+incrementalized operator that responds to changesin \emph{any} of its
+inputs. Finally, Delta-BiGJoin can be generalized to maintain queries
+involving predicates, stratified negation, and other types of
+constraints. A more in-depth explanation of our implementation and
+these extensions is given in the chapter on implementation details,
+\autoref{impl-hector}.
+
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{diagrams/wco_dataflow}
+  \caption{Worst-Case Optimal Dataflow Join Primitive}
+  \label{fig:wco-illustration}
+  \medskip
+  \small
+
+  This operator reacts to changes in a single base relation $(a,b)$
+  and maintains a collection of valid $(a,b,c)$, corresponding to the
+  result set of joining $(a,b), (b,c), (a,b)$. In doing so it
+  materializes no more tuples than could possibly be contained in the
+  output.
+\end{figure}
+
+Delta-BiGJoin is robust against adversarially skewed datasets, adapts
+as distributions change over time, and can improve the asymptotic
+complexity of computing cyclic queries. For many average- and
+best-case queries however, sub-optimal join orderings have an adverse
+effect on performance that is significant in practice, although not
+asymptotically worse. In these cases, the variable order chosen by a
+wco join matters much more.
+
+For example, given prefixes $(a,b)$ and relations $\{r_1(a,c),
+r_2(a,d)\}$, we might choose to first extend to $c$ via $r_1$, or
+instead to $d$ via $r_2$. Choosing one over the other has no bearing
+on the asymptotic result set bound. Still, for non-uniformly
+distributed relations, some prefixes might produce many more matches
+in $r_1$, whereas for others it would be the other way around. Picking
+the optimal variable order is thus again a data-dependent cardinality
+estimation problem, if one with a better safety net. We discuss this
+problem later on in \autoref{impl-hector} but a satisfying solution is
+beyond the scope of this work.
+
+Further, as seen above, wco algorithms perform significantly more work
+per tuple than traditional two-way joins. For example, at each
+extension stage, each tuple requires multiple index lookups in order
+to determine the optimal extension strategy.
 
 We thus expect a wco approach to significantly improve robustness on
 queries in the worst-case class, but to adversly affect performance on
 average- and best-case queries, as compared to traditional,
-heuristics-based approaches. Our particular implementation of a
-worst-case optimal dataflow join operator is detailed in
-\autoref{impl-hector}.
+heuristics-based approaches. What we gain is adaptive, continuous
+maintenance without the need for synchronized re-optimization steps,
+and compatibility with the memory-efficient delta query strategy from
+\autoref{case-join-state}.
 
 \subsection{Evaluation}
 
-First we want to examine whether a worst-case optimal join strategy
-does lead to more predictable latencies on cyclic queries,
-\emph{irrespective of the clause order provided by the user}. For this
-we will consider the triangle query \texttt{[?a :edge ?b] [?b :edge
-    ?c] [?a :edge ?c]} on the livejournal graph. The graph contains 68
-million edges. We introduce edges in node order, feeding them into a
-single attribute. The i-th round of input is therefore that in which
-all edges starting at node i are ingested. We use a single worker,
-running on a single core of a 2.7 GHz Intel Core i5, with 16GB RAM
-available.
+We show that our implementation of Delta-BiGJoin leads to
+significantly more predictable latencies on a representative cyclic
+query, that outperform sub-optimal join-at-a-time plans by several
+orders of magnitude. Conversely, we show that the best join-at-a-time
+order matches the performance of our worst-case optimal approach,
+whereas the worst one leads to an unresponsive system that quickly
+runs out of memory. We also show that our worst-case optimal approach
+can match the performance of join-at-a-time plans on queries in the
+best- and average-case class, although more extensive benchmarking is
+required to draw broader conclusions.
 
-We run this setup for both strategies — consecutive binary joins
-(\emph{JoinJoinJoin}) and worst-case optimal (\emph{Hector} — and for
-three different input clause orderings each, measuring completion time
-for each round of inputs. The resulting latency distributions are
-shown in figure \ref{fig:triangle-cdfs}.
-
-\begin{figure}[h!]
-  \includegraphics[width=1.0\linewidth]{results/triangles/out/all_cdfs}
-  \caption{Triangle Query - Latency CCDFs}
-  \label{fig:triangle-cdfs}
-\end{figure}
-
-As expected, we observe that performance of the JoinJoinJoin strategy
-is highly sensitive to clause order. In particular, the first ordering
-(\texttt{([a b] [a c]) [b c]}), runs out of memory at node 87, while
-the third ordering (\texttt{([a c] [b c]) [a b]}) consistently
-outperforms all of the tested strategies.
-
-The worst-case optimal strategy performs consistently well for all
-three input clause orderings and consistently outperforms the two
-disastrous join orderings by one to many orders of magnitude. The best
-performing JoinJoinJoin order can outperform Hector, but with a
-similar long-tail and twice the maximum latency.
-
-These observations remain valid when measuring thrice the number of
-rounds (\autoref{fig:triangle-cdfs-extended}), as well as when
-increasing the batch size to introduce one thousand nodes at a time
-(\autoref{fig:triangle-cdfs-batch}).
+As a representative cyclic query, we chose the triangle query $(a,b),
+(b,c), (a,c)$. We ran this query on the livejournal graph dataset,
+which contains 68 million edges. We introduce edges in node order,
+feeding them into a single base relation. The i-th round of input is
+therefore that, in which all edges starting at node i are ingested. We
+use a single worker, running on a single core of a 2.7 GHz Intel Core
+i5, with 16GB RAM available. We run this setup for both strategies,
+join-at-a-time and worst-case optimal, and for three different input
+clause orderings each, measuring completion time for each round of
+inputs. The resulting latency distributions are shown in figure
+\ref{fig:triangle-cdfs}.
 
 \begin{figure}[h!]
+  \begin{subfigure}{1.0\textwidth}
+    \includegraphics[width=1.0\linewidth]{results/triangles/out/all_cdfs}
+    \caption{Triangle Query - Latency CCDFs}
+    \label{fig:triangle-cdfs}
+  \end{subfigure}
   \begin{subfigure}{.5\textwidth}
     \includegraphics[width=1.0\linewidth]{results/triangles/out/extended_cdf}
     \caption{More Rounds}
@@ -164,10 +204,33 @@ increasing the batch size to introduce one thousand nodes at a time
     \caption{Batch Size 1000}
     \label{fig:triangle-cdfs-batch}
   \end{subfigure}
+
+  \medskip
+  \small
+
+  Complementary CDFs of join completion times for each round of
+  inputs, while maintaining a triangle count over a stream of the
+  livejournal graph. The worst-case optimal strategies perform
+  consistently, independent of the provided clause order. They match
+  the performance of the best-performing join-at-a-time plan, while
+  outperforming sub-optimal orderings by several orders of magnitude.
 \end{figure}
 
-Next we evaluate Hector on the \texttt{BI/read/2} query from the LDBC
-dataset. We used the LDBC data generator to generate a dataset
+We observe that the join-at-a-time strategy is highly sensitive to
+clause order. In particular, the worst ordering ($((a,b) \bowtie
+(a,c)) \bowtie (b,c)$), never completes inputs at node 87 before
+running out of memory, while the best ordering ($((a,c) \bowtie (b,c))
+\bowtie (a,b)$) comes very close to the wco performance. The wco
+strategy performs consistently well, regardless of clause order, and
+consistently outperforms the two disastrous join orderings by one to
+many orders of magnitude. These observations remain valid when
+measuring thrice the number of rounds
+(\autoref{fig:triangle-cdfs-extended}), as well as when increasing the
+batch size to introduce one thousand nodes at a time
+(\autoref{fig:triangle-cdfs-batch}).
+
+Next we evaluated performance on the \texttt{BI/read/2} query from the
+LDBC benchmark. We used the LDBC data generator to generate a dataset
 simulating the activity of 10,000 users in a social network. We
 registered each query plan and then ingested the data in small
 batches, measuring the completion time for each input
