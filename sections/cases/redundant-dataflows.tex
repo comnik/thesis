@@ -150,24 +150,24 @@ In some situations, an additional implementation strategy might be
 available to us: we can model multi-tenancy within the data plane
 itself. Recall the query from earlier:
 
-\begin{verbatim}
+\begin{lstlisting}[language=datalog, style=colorlog]
 [:find ...
  :where
  (comment ?comment ?place ...)
  [?place :place/name "Zurich"]]
-\end{verbatim}
+\end{lstlisting}
 
 As a first step, we will re-write this query, replacing the explicit
 filter by a parameter input, drawn from an additional parameter
 attribute.
 
-\begin{verbatim}
+\begin{lstlisting}[language=datalog, style=colorlog]
 [:find ...
  :where
  (comment ?comment ?place ...)
  [?place :place/name ?name-filter]
  [_ :parameter/place-name ?name-filter]]
-\end{verbatim}
+\end{lstlisting}
 
 This is useful in an of itself, because it gives us the ability to
 update the filter parameter (with updated results derived

@@ -2,48 +2,37 @@
 
 \begin{document}
 
-\subsection{Problem}
-
-Throughout this work we have seen the many challenges of implementing
-complex, high-arity joins. At the same time, we have also seen their
-tremendous power as enablers for flexible data modeling, as well as
+The techniques discussed throughout the previous chapters, when taken
+together, allow us to treat many-way relational joins as safe,
+efficient operations in dynamic, multi-user environments. In the
+context of 3DF specifically, they enable flexible data modeling that
+can evolve with the needs of an organization and provide the
 foundation on which the entire expressive range of a language like
-Datalog can be implemented efficently.
+Datalog is implemented. While continuously changing data distributions
+posed a challenge to traditional methods of cardinality estimation,
+they skewed datasets cause additional problems in a distributed
+setting.
 
-We have also touched on [@TODO] features such as user-controlled query
-parameters and queries across a specific range of time, which treat
-control inputs and configuration parameters as data and which are then
-in turn efficently implemented via the join primitives.
+Skew problems arise whenever inputs are not distributed evenly across
+workers. For stateless operators such as \texttt{map} or
+\texttt{filter}, we are free to balance inputs evenly amongst
+workers. This is generally not possible for stateful operators. In
+particular, an operator such as \texttt{join} must be certain it will
+see all inputs for a key $k$ on a specific worker, if it has seen any
+input for $k$ on that worker. The physical distribution of data will
+therefore tend to follow its logical distribution — which is rarely
+uniform in practice.
 
-In this scenario we will focus on a critical property of distributed
-joins in general, and of the latter "control joins" in particular:
-skew.
+\subsection{Example}
 
-Skew problems arise in distributed, data-parallel processing, whenever
-inputs are either not distributed evenly across homogeneous workers,
-or not distributed according to the varying capacities of
-heterogeneous workers.
-
-For stateless operators such as \texttt{map} or \texttt{filter}, we
-can always randomly shuffle the data amongst workers, to ensure a
-uniform distribution. This is not possible for operators that depend
-on state for each key. In particular, an operator such as
-\texttt{join} must be certain it will see all inputs for a key $k$ on
-a specific worker, if it has seen any input for $k$ on that
-worker. Otherwise we might miss results.
-
-\subsection{Examples}
-
-@TODO MatchAV, MatchEA, Filter vs Lookup vs Join
-
-@TODO control collection
-
-@TODO general trade-off with arrangements
-
-Categorical data is the cornerstone of modern data science. Predictive
-models both consume and serve as natural input sources of
-\emph{features} such as \texttt{:transaction/fraudulent?} or
-\texttt{:person/bot?}.
+An extreme example of skew is caused by reverse indices (mapping
+attribute values to their keys) on categorical data. Our worst-case
+optimal dataflow join implementation relies heavily on reverse indices
+on attributes (this is discussed in detail later in
+\autoref{implementation}). Categorical data is the cornerstone of many
+modern analytical tasks. Predictive models both consume and serve as
+natural input sources of categorical inputs (\emph{features}) such as
+\texttt{:transaction/fraudulent?} or \texttt{:person/bot?}.
 
 While features can be modelled as boolean attributes, useful features
 should be highly discriminating and thus apply to very small subsets
@@ -51,17 +40,33 @@ of entities with little overlap. Explicitely storing false values to
 indicate absence of a feature is therefore a very storage-inefficient
 approach. For this reason, a value of true is often meant to indicate
 the presence of the feature on the given entity, while any entity not
-contained in the relation is assumed to not posses the feature.
-
-Modeling categorical features via binary relations in this way leads
-to an extremely skewed distribution of values. In particular a reverse
-index on any such attribute (as required by the worst-case optimal
-join algorithm) would be entirely stored on a single worker.
+contained in the relation is assumed to not posses the
+feature. Modeling categorical features via binary relations in this
+way leads to an extremely skewed distribution of values in the reverse
+indices, which would then be stored entirely on a single worker.
 
 \subsection{Remedies}
 
-\cite{ammar2018distributed} propose a skew resilient version of their
+Skew in this scenario is caused by the requirement arranged state be
+distributed according to its keys. To remediate this, we must modify
+operator implementations to either still produce correct outputs when
+individual workers might not see all inputs on a specific key or
+obviate the need for the skewed indices entirely.
+
+\cite{ammar2018distributed} propose a skew resilient version of the
 \emph{Delta-BiGJoin} algorithm. Its implementation and adaption to 3DF
 are beyond the scope of this work.
+
+Another possibility is to distribute one side of a two-way join evenly
+and broadcast all inputs on the other side to all workers. This is
+advantageous in situations where the volume of inputs is low on one
+side of the join. However, this approach does not rid us of the
+sub-optimal modeling of features.
+
+Instead, we can extend our worst-case optimal join framework slightly,
+to cover unary relations. Unary relations bind only a single variable
+and thus don't require reverse indices. \autoref{impl-hector} provides
+a sketch of this extension. At the time of this writing, we have not
+implemented it in 3DF.
 
 \end{document}
