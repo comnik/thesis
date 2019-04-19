@@ -143,10 +143,12 @@ described later in \autoref{impl-altneu}.
 \subsection{Evaluation}
 
 We show that joins of arbitrary arity implemented with delta queries
-maintain no intermediate tuples in addition base relations, whereas
-the same joins implemented as join-at-a-time plans store intermediate
-tuples proportional to the size of the base relations and the arity of
-the join.
+maintain no intermediate tuples, whereas the same joins implemented as
+join-at-a-time plans store intermediate tuples proportional to the
+size of the base relations and the arity of the join. Both approaches
+require base relations in arranged form, which are shared across all
+queries. We find that delta queries do not adversely affect update
+latencies in a significant way.
 
 Using the LDBC (\cite{erling2015ldbc}) data generators we generated a
 dataset simulating the social network activity of ~10,000 persons. On
@@ -163,35 +165,61 @@ arrangement is easily inferred. Implementation details of the logging
 instrumentation are covered in \autoref{logging}.
 
 \begin{figure}[h!]
-  \begin{subfigure}{1.0\textwidth}
+  \begin{subfigure}{.5\textwidth}
     \includegraphics[width=1.0\linewidth]{results/join-state/out/tuples_join}
     \caption{Join-at-a-Time}
   \end{subfigure}
-  \begin{subfigure}{1.0\textwidth}
+  \begin{subfigure}{.5\textwidth}
     \includegraphics[width=1.0\linewidth]{results/join-state/out/tuples_delta}
     \caption{Delta Queries}
   \end{subfigure}
 
   \caption{Total Number of Tuples in Arrangements}
   \label{fig:tuple-counts}
+  \medskip
+  \small
+
+  Total number of tuples maintained across base relations and
+  intermediate join state, measured on join-at-a-time plans (a) and
+  delta query plans (b) of increasing arity. Tuples in intermediate
+  arrangements are not shared between queries. Intermediate state
+  grows proportional to join arity for join-at-a-time plans, whereas
+  no intermediate state is required for delta queries.
 \end{figure}
 
-Figure \ref{fig:tuple-counts} shows the total number of arranged
-tuples after each join produced initial results. As expected, we see
-that the number of arranged intermediate tuples grows with as more
-attributes participate in a consecutive two-way join, whereas it
-remains constant when using delta queries.
+\autoref{fig:tuple-counts} shows the total number of tuples held in
+arrangements, after each join produced a complete initial result
+set. Tuple counts are broken down into those held in base relations,
+which are shared across all queries, and those stored in intermediate
+arrangements created by the join operator. We observe that, for
+join-at-a-time plans, the number of arranged intermediate tuples grows
+as more attributes participate, whereas no intermediate tuples are
+stored when using delta queries.
 
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{results/join-state/out/all_cdfs}
   \caption{Latency CCDFS}
   \label{fig:arity-latencies}
+  \medskip
+  \small
+
+  Complementary CDFs of join completion times for each round of
+  inputs, when streaming inputs into pre-registered joins of
+  increasing arity. Delta queries do not adversely effect update
+  latencies.
 \end{figure}
 
-Delta queries allow us to trade dataflow size in return for a
-predictable memory footprint, and without affecting latencies
-significantly. Considering only selections, projections, and n-way
-joins, the overall system could be configured to use only memory
+We then inverted the setup, first creating join dataflows before
+streaming in all person attributes from the LDBC dataset. We measured
+completion times for each distinct batch of inputs. The resulting
+distributions are shown in \autoref{fig:arity-latencies}. We observe
+that both join strategies produce very similar distributions with
+increasing arity.
+
+Delta queries thus allow us to trade dataflow size in return for a
+predictable memory footprint, and to do so without affecting latencies
+in a significant way. Considering only selections, projections, and
+n-way joins, the overall system could be configured to use only memory
 proportional to the number and size of the base relations. No
 additional operator state is required, independent of the number of
 queries and the arity of the joins within them.
