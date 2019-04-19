@@ -90,8 +90,100 @@ optimization opportunities.
 
 \section{Other Findings and Future Work} \label{future-work}
 \subfile{sections/future-work.tex}
+\newpage
 
 \section{Conclusions} \label{conclusions}
+
+We have investigated the problem of optimizing the continuous
+maintenance of relational queries for dynamic, multi-user
+environments. Besides the basic need for consistent, correct results,
+we identified robustness, support for many concurrent users with
+general-purpose use cases, and low-latency execution at
+high-throughputs as the driving goals behind this work. We thus were
+looking for techniques that could bring the domain of analytical, and
+graph databases closer to that of high-performance stream processing.
+
+In closing, we want to summarize our findings and how they lead to a
+system that satisfies these properties.
+
+\begin{enumerate}
+\item
+  The cyclic dataflow model in combination with progress tracking of
+  partially-ordered logical times, as implemented by the Timely
+  Dataflow framework, enables consistent, data-parallel computations
+  that exploit fine-grained opportunities for concurrent
+  execution. Support for local iteration of regions of the dataflow
+  dramatically increase the class of algorithms that can be expressed
+  within this model.
+
+\item
+  Distributed incremental computation with iteration and support for
+  retractions, as implemented by the Differential Dataflow framework,
+  makes it possible to efficiently maintain complex relational views
+  over data streams.
+
+\item
+  Compact, shared representations of historical inputs, as implemented
+  by Differential's arrangements, allow the dynamic creation of new
+  dataflows with low-latency.
+
+\item
+  Declarative, relational languages such as Datalog, in combination
+  with an attribute-oriented data model, are expressive enough to
+  support a wide range of use cases, and are easily extended to new
+  domains, without fundamentally affecting the underlying runtime.
+
+\item
+  Deferred synthesis of query plans is essential in dynamic
+  environments, where queries might be defined across multiple
+  declarative interactions, and where partially constrained plans
+  significantly impact the overall system performance.
+
+\item
+  Exploiting the linearity of the relational join operator via delta
+  queries makes it possible to implement joins of arbitrary arity with
+  a constant memory footprint and without significantly impacting
+  latencies. Delta queries can be combined to form join operators that
+  update incrementally in response to arbitrary input changes.
+
+\item
+  Worst-case optimal dataflow join algorithms are compatible with
+  delta queries and enable robust, predictable performance
+  irrespective of clause order. The performance of the resulting
+  operators can be competitive with traditional join-at-a-time
+  approaches for best- and average-case queries, and offers asymptotic
+  improvements for a class of relevant queries. Crucially, these
+  properties are preserved on long-running dataflows, even as the
+  underlying data distributions change, without the need for
+  synchronized re-optimization.
+
+\item
+  Extensions beyond purely conjunctive queries can be implemented
+  within the same worst-case optimal join framework. We gave
+  implementations of binary predicates, stratified negation, and
+  constant bindings. Combined with Differential's support for
+  fixed-point iteration, these cover the needs of many
+  functional-relational query languages. Similarly, we gave an
+  extension to unary relations, that allows remediating categorical
+  data as a common source of skew.
+
+\item
+  Modeling client parameters via additional joins on parameter
+  relations allows both the dynamic re-configuration of existing
+  dataflows, as well as the multiplexing of multiple client's
+  interests onto a single dataflow. The resources of that dataflow can
+  then be shared without limiting optimization opportunities. More
+  generally applicable re-use is still possible via arrangements and
+  scales significantly better than creating individual dataflows for
+  every client.
+
+\end{enumerate}
+
+We identified areas for future work, in particular on automated
+policies and hybrid planners, that are required to tie these
+primitives into fully-formed systems. Nevertheless we believe that our
+findings and their implementation within 3DF provide strong
+foundations on which such systems can build.
 
 \newpage
 
