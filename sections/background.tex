@@ -48,7 +48,7 @@ results. Producing results over-eagerly will keep latencies low, but
 causes downstream inconsistencies, because forwarded results do not
 include all relevant inputs. Likewise, holding results back for too
 long will ensure correctness but might increase latencies
-unneccesarily (taken to the extreme, this end of the spectrum
+unnecessarily (taken to the extreme, this end of the spectrum
 corresponds to batch processing).
 
 To solve this problem, a logical timestamp is attached to each datum
