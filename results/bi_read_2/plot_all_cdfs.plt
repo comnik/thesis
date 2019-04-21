@@ -11,7 +11,8 @@ set style line 6 lc rgb "#BC3409" lt 1 lw 1 pt 2 ps 1
 # xsv select 2 raw/... | sort -n | uniq --count | awk 'BEGIN{sum=0}{print $2,$1,sum; sum=sum+$1}' > parsed.dat
 
 set xlabel "Completion Time (ms)"
-set ylabel "Percentile"
+set ylabel "Complementary CDF"
+set xrange [1:10000]
 set logscale x 10
 set logscale y 10
 set format x "10^{%L}"
@@ -22,9 +23,9 @@ set key inside left bottom Left reverse
 set output "out/all_cdfs.pdf"
 
 stats "join.dat" using 3;
-stats "join_bad_order.dat" using 3;
+stats "join_2.dat" using 3;
 stats "hector.dat" using 3; 
 
 plot "join.dat" using 1:(1-$3/STATS_max) ls 1 with lines title "Join I",\
-     "join_bad_order.dat" using 1:(1-$3/STATS_max) ls 2 with lines title "Join II",\
-     "hector.dat" using 1:(1-$3/STATS_max) ls 4 with lines title "Hector",\
+     "join_2.dat" using 1:(1-$3/STATS_max) ls 2 with lines title "Join II",\
+     "hector.dat" using 1:(1-$3/STATS_max) ls 4 with lines title "WCO",\
