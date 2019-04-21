@@ -235,25 +235,43 @@ simulating the activity of 10,000 users in a social network. We
 registered each query plan and then ingested the data in small
 batches, measuring the completion time for each input
 epoch. \autoref{fig:average-cdfs} shows the resulting latency
-distributions for two different join-at-a-time orders and Hector.
-
-\begin{figure}[h!]
-  \includegraphics[width=1.0\linewidth]{results/bi_read_2/out/all_cdfs}
-  \caption{BI/read/2 - Latency CCDFs}
-  \label{fig:average-cdfs}
-\end{figure}
+distributions for two different join-at-a-time orders and Hector. In
+this case, performance of different join orders is distinguishable,
+but stays within the same order of magnitude. The worst-case optimal
+strategy performs slightly worse, but also matches the same order of
+magnitude.
 
 Finally we evaluated a simple star-join of posts across four
 one-to-one attributes (\texttt{:post/ip, :post/browser,
   :post/language, :post/content}). Each post in the dataset has
 exactly one value assigned for each of these
 attributes. \autoref{fig:best-case-cdfs} shows the resulting latency
-distributions.
+distributions. Again, the worst-case optimal strategy matches the
+performance of the join-at-a-time plan.
 
-\begin{figure}[h!]
-  \includegraphics[width=1.0\linewidth]{results/best_case/out/all_cdfs}
-  \caption{Best-Case Star-Join - Latency CCDFs}
-  \label{fig:best-case-cdfs}
+\begin{figure}
+  \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[width=1.0\linewidth]{results/bi_read_2/out/all_cdfs}
+    \caption{BI/read/2 - Latency CCDFs}
+    \label{fig:average-cdfs}
+  \end{subfigure}
+  \begin{subfigure}{.5\textwidth}
+    \centering
+    \includegraphics[width=1.0\linewidth]{results/best_case/out/all_cdfs}
+    \caption{Best-Case Star-Join - Latency CCDFs}
+    \label{fig:best-case-cdfs}
+  \end{subfigure}
+
+  \medskip
+  \small
+
+  Complementary CDFs of join completion times for each round of
+  inputs, while maintaining the BI/read/2 query from the LDBC
+  benchmark (a) and a four-way star-join across one-to-one attributes
+  (b) over a stream simulating the activity of 10,000 users in a
+  social network. The worst-case optimal strategy matches the
+  performance of join-at-a-time strategies.
 \end{figure}
 
 \end{document}
