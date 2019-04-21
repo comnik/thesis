@@ -194,7 +194,11 @@ which are shared across all queries, and those stored in intermediate
 arrangements created by the join operator. We observe that, for
 join-at-a-time plans, the number of arranged intermediate tuples grows
 as more attributes participate, whereas no intermediate tuples are
-stored when using delta queries.
+stored when using delta queries. Note that our join-at-a-time
+implementation does not yet make full use of all available base
+relations for higher arities. An optimal implementation should be
+expected to produce around half the absolute number of intermediate
+tuples.
 
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{results/join-state/out/all_cdfs}
