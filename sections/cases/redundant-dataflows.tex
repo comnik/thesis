@@ -260,15 +260,18 @@ way is left for future inquiry.
 
 \subsection{Evaluation}
 
-We evaluated the performance of different re-use strategies with the
-following scenario. A constant load of 500 tuples per second was
-generated, simulating sensor measurements reported by different
-devices. Every second of the experiment, ten new clients were
-introduced using one of three strategies:
+We show that sharing dataflow resources via arrangements significantly
+improves the scalability compared to a shared-nothing approach, but is
+still limited by the number of dataflow elements. Sharing a single
+dataflow between multiple tenants, with isolation handled in the data
+plane, is applicable only in specific scenarios, but scales
+dramatically better.
 
-\begin{enumerate}
-  \item 
-\end{enumerate}
+For this experiment we generated a constant load of 500 tuples per
+second, simulating sensor measurements reported by different
+devices. Every second of the experiment, ten new clients were
+introduced using one of three strategies: shared-nothing, sharing via
+arrangements, and multi-tenancy in the data plane.
 
 \begin{figure}[h!]
   \begin{subfigure}{1.0\textwidth}
