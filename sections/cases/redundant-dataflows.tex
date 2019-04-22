@@ -271,20 +271,24 @@ For this experiment we generated a constant load of 500 tuples per
 second, simulating sensor measurements reported by different
 devices. Every second of the experiment, ten new clients were
 introduced using one of three strategies: (a) shared-nothing, (b)
-sharing via arrangements, and (c) multi-tenancy in the data plane. The
-results are shown in \autoref{fig:sharing}.
+sharing via arrangements, and (c) multi-tenancy in the data plane.
+Input epochs close every second, we measure the latency to close every epoch.
+The results are shown in \autoref{fig:sharing}.
 
 \begin{figure}[h!]
-  \begin{subfigure}{1.0\textwidth}
-    \includegraphics[width=1.0\linewidth]{results/multitenant_w1_p1/times}
-    \caption{Single Worker}
-  \end{subfigure}
-  \begin{subfigure}{1.0\textwidth}
-    \includegraphics[width=1.0\linewidth]{results/multitenant_w1_p3/times}
-    \caption{Three Distributed Workers}
-  \end{subfigure}
+  \includegraphics[width=1.0\linewidth]{results/multitenant_w1_p1/times}
+  \caption{Single Worker}
   \label{fig:sharing}
-  \caption{Per-Epoch Latencies}
+  \medskip
+  \small
+
+  Different resource-sharing strategies under a constant load of 500
+  tuples and ten new clients every second. Overall dataflow size
+  limits scalability (shared-nothing). Sharing resources via
+  arrangements improves scalability significantly. Multi-tenant
+  dataflows share all dataflow elements and isolate clients in the
+  data plane. This strategy is therefore unaffected by limits on the
+  dataflow size.
 \end{figure}
 
 \end{document}
