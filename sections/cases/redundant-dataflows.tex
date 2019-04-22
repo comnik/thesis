@@ -270,8 +270,9 @@ dramatically better.
 For this experiment we generated a constant load of 500 tuples per
 second, simulating sensor measurements reported by different
 devices. Every second of the experiment, ten new clients were
-introduced using one of three strategies: shared-nothing, sharing via
-arrangements, and multi-tenancy in the data plane.
+introduced using one of three strategies: (a) shared-nothing, (b)
+sharing via arrangements, and (c) multi-tenancy in the data plane. The
+results are shown in \autoref{fig:sharing}.
 
 \begin{figure}[h!]
   \begin{subfigure}{1.0\textwidth}
@@ -282,7 +283,7 @@ arrangements, and multi-tenancy in the data plane.
     \includegraphics[width=1.0\linewidth]{results/multitenant_w1_p3/times}
     \caption{Three Distributed Workers}
   \end{subfigure}
-
+  \label{fig:sharing}
   \caption{Per-Epoch Latencies}
 \end{figure}
 

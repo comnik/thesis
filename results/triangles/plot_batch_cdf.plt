@@ -15,7 +15,9 @@ set format y "10^{%L}"
 set output "out/batch_cdf.pdf"
 
 stats "batch/join.dat" using 3;
-stats "batch/dogs.dat" using 3;
+stats "batch/join3.dat" using 3; 
+stats "batch/hector.dat" using 3;
 
-plot "batch/join.dat" using 1:(1-$3/STATS_max) ls 3 with lines title "Join ([a c] [b c]) [a b]",\
-     "batch/dogs.dat" using 1:(1-$3/STATS_max) ls 4 with lines title "WCO", 
+plot "batch/join.dat" using 1:(1-$3/STATS_max) ls 1 with lines title "Join I",\
+     "batch/join3.dat" using 1:(1-$3/STATS_max) ls 3 with lines title "Join III",\
+     "batch/hector.dat" using 1:(1-$3/STATS_max) ls 4 with lines title "WCO",\

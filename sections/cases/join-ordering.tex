@@ -169,12 +169,12 @@ We show that our implementation of Delta-BiGJoin leads to
 significantly more predictable latencies on a representative cyclic
 query, that outperform sub-optimal join-at-a-time plans by several
 orders of magnitude. Conversely, we show that the best join-at-a-time
-order matches the performance of our worst-case optimal approach,
+order matches the performance of our worst-case optimal approach at,
 whereas the worst one leads to an unresponsive system that quickly
 runs out of memory. We also show that our worst-case optimal approach
 can match the performance of join-at-a-time plans on queries in the
-best- and average-case class, although more extensive benchmarking is
-required to draw broader conclusions.
+average-case class, while adding roughly an order of magnitude
+overhead to queries in the best-case class.
 
 As a representative cyclic query, we chose the triangle query $(a,b),
 (b,c), (a,c)$. We ran this query on the livejournal graph dataset,
@@ -189,22 +189,9 @@ inputs. The resulting latency distributions are shown in figure
 \ref{fig:triangle-cdfs}.
 
 \begin{figure}[h!]
-  \begin{subfigure}{1.0\textwidth}
-    \includegraphics[width=1.0\linewidth]{results/triangles/out/all_cdfs}
-    \caption{Triangle Query}
-    \label{fig:triangle-cdfs}
-  \end{subfigure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[width=1.0\linewidth]{results/triangles/out/extended_cdf}
-    \caption{More Rounds}
-    \label{fig:triangle-cdfs-extended}
-  \end{subfigure}
-  \begin{subfigure}{.5\textwidth}
-    \includegraphics[width=1.0\linewidth]{results/triangles/out/batch_cdf}
-    \caption{Batch Size 1000}
-    \label{fig:triangle-cdfs-batch}
-  \end{subfigure}
-
+  \includegraphics[width=1.0\linewidth]{results/triangles/out/all_cdfs}
+  \caption{Triangle Query}
+  \label{fig:triangle-cdfs}
   \medskip
   \small
 
@@ -214,6 +201,24 @@ inputs. The resulting latency distributions are shown in figure
   consistently, independent of the provided clause order. They match
   the performance of the best-performing join-at-a-time plan, while
   outperforming sub-optimal orderings by several orders of magnitude.
+\end{figure}
+
+Due to the worst join-at-a-time strategy running out of memory on
+iteration 87, we ran an extended setup without it. The extended setup
+was run on the same dataset, on a single core of a 3.4 GHz Intel Core
+i7 with 64GB RAM available. We also increased the batching, ingesting
+1000 nodes in each round of inputs. The resulting distributions are
+shown in \autoref{fig:triangle-cdfs-extended}.
+
+\begin{figure}[h!]
+  \includegraphics[width=1.0\linewidth]{results/triangles/out/batch_cdf}
+  \caption{Triangle Query - Extended}
+  \label{fig:triangle-cdfs-extended}
+
+  Join completion times while maintaining a triangle count over a
+  stream of the livejournal graph, with increased batching. The
+  worst-case optimal strategy consistently outperforms both
+  join-at-a-time strategies.
 \end{figure}
 
 We observe that the join-at-a-time strategy is highly sensitive to
@@ -235,11 +240,11 @@ simulating the activity of 10,000 users in a social network. We
 registered each query plan and then ingested the data in small
 batches, measuring the completion time for each input
 epoch. \autoref{fig:average-cdfs} shows the resulting latency
-distributions for two different join-at-a-time orders and Hector. In
-this case, performance of different join orders is distinguishable,
-but stays within the same order of magnitude. The worst-case optimal
-strategy performs slightly worse, but also matches the same order of
-magnitude.
+distributions for two different join-at-a-time orders and the
+worst-case optimal strategy. In this case, performance of different
+join orders is distinguishable, but stays within the same order of
+magnitude. The worst-case optimal strategy performs slightly worse,
+but also matches the same order of magnitude.
 
 Finally we evaluated a simple star-join of posts across four
 one-to-one attributes (\texttt{:post/ip, :post/browser,

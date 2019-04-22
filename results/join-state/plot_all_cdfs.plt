@@ -11,7 +11,7 @@ set style line 6 lc rgb "#BC3409" lt 1 lw 1 pt 2 ps 1
 # xsv select 2 raw/... | sort -n | uniq -c | awk 'BEGIN{sum=0}{print $2,$1,sum; sum=sum+$1}' > parsed.dat
 
 set xlabel "Completion Time (ms)"
-set ylabel "Percentile"
+set ylabel "Complementary CDF"
 set logscale x 10
 set logscale y 10
 set format x "10^{%L}"
