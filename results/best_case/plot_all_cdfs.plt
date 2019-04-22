@@ -8,11 +8,11 @@ set style line 5 lc rgb "#F88967" lt 1 lw 1 pt 2 ps 1
 set style line 6 lc rgb "#BC3409" lt 1 lw 1 pt 2 ps 1
 
 # in order to prepare the data (assuming single column of latencies):
-# xsv select 2 raw/... | sort -n | uniq --count | awk 'BEGIN{sum=0}{print $2,$1,sum; sum=sum+$1}' > parsed.dat
+# xsv select 1 raw/... | sort -n | uniq --count | awk 'BEGIN{sum=0}{print $2,$1,sum; sum=sum+$1}' > parsed.dat
 
 set xlabel "Completion Time (ms)"
 set ylabel "Complementary CDF"
-set xrange [1:10000]
+# set xrange [1:1000]
 set logscale x 10
 set logscale y 10
 set format x "10^{%L}"
