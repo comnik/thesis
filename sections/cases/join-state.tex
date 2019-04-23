@@ -225,17 +225,16 @@ streaming in all person attributes from the LDBC dataset. We measured
 completion times for each distinct batch of inputs. The resulting
 distributions are shown in \autoref{fig:arity-latencies}. We observe
 that both join strategies produce very similar distributions with
-increasing arity. We observe that delta queries do not adversly affect
-latencies in a significant way, even though join-at-a-time plans
-achieve a slightly lower overall profile.
+increasing arity. Join-at-a-time plans achieve a slightly lower
+overall profile. Delta queries thus allow us to trade dataflow size in
+return for a predictable memory footprint, and to do so without
+affecting latencies in a significant way.
 
-Delta queries thus allow us to trade dataflow size in return for a
-predictable memory footprint, and to do so without affecting latencies
-in a significant way. Considering only selections, projections, and
-n-way joins, the overall system could be configured to use only memory
-proportional to the number and size of the base relations. No
-additional operator state is required, independent of the number of
-queries and the arity of the joins within them.
+Considering only selections, projections, and n-way joins, the overall
+system could be configured to use only memory proportional to the
+number and size of the base relations. No additional operator state is
+required, independent of the number of queries and the arity of the
+joins within them.
 
 Additionally, delta queries decouple space from time complexity. Using
 traditional tree joins, a sub-optimal join plan incurs both a heavy
