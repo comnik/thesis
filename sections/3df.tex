@@ -3,7 +3,7 @@
 \begin{document}
 
 With a system like Differential Dataflow (\emph{Differential})
-available it becomes feasible to re-think the boundaries between the
+available it becomes feasible to rethink the boundaries between the
 domain of analytical databases and that of near real-time stream
 processors.
 
@@ -23,7 +23,7 @@ work.
 
 3DF imposes strong opinions on data modeling. In particular, we adopt
 a unified, \emph{attribute-oriented} data model. The fundamental unit
-of modeling are facts, represented as entity, attribute, value
+of modeling are facts, represented by entity, attribute, value
 triples. Although conceptually we are modelling a single space of
 facts as it evolves through logical time, we keep track of individual
 attributes in their own Differential collections. Attribute
@@ -46,7 +46,7 @@ need for evolvable information systems in the real-world. Other
 organizational aspects such as documentation and namespacing are also
 most naturally expressed at this fine-grained level. An important
 effect of attribute-oriented modeling is the ability to source
-attributes from different external systems, even though they might
+attributes from different external systems even though they might
 belong together from a domain modeling perspective.
 
 It is well established that data processing systems with data models
@@ -62,23 +62,23 @@ specialized system dominates. We suspect that this threshold is even
 higher for many industrial users with no in-house competence in
 designing data-processing systems.
 
-Additionally, an important characteristic of modern analytical tasks
-is the prevalence of categorical features. In a relational setting,
-features correspond to distinct unary relations. In a traditional,
-row-oriented data model, modeling such data will lead to very wide,
-sparse tuples. Attribute-oriented data models can represent such data
-much more efficiently and materialize only necessary attributes, but
-incur frequent multi-way joins across relations of potentially highly
-varying selectivities. These same insights drive the design of modern,
-column-oriented analytical databases. We use the terms
+Another important characteristic of modern analytical tasks is the
+prevalence of categorical features. In a relational setting, features
+correspond to distinct unary relations. In a traditional, row-oriented
+data model, modeling such data will lead to very wide, sparse
+tuples. Attribute-oriented data models can represent such data much
+more efficiently, and materialize only necessary attributes, at the
+cost of frequent multi-way joins across relations of potentially
+highly varying selectivities. These same insights drive the design of
+modern, column-oriented analytical databases. We use the terms
 \emph{attribute} and \emph{column} interchangeably throughout this
 work.
 
 We therefore think it justified to fix attribute-orientation as a
 strong requirement for 3DF, and investigate instead whether novel
 approaches in other areas (such as Differential Dataflow itself) allow
-us to build systems that are useful in the real-world and can still
-offer competitive performance across a wide class of use cases.
+us to build systems that are both useful in real-world settings, and
+still offer competitive performance across a wide class of use cases.
 
 \subsection{Query Plan Language}
 
@@ -88,17 +88,18 @@ specifically with the needs of a reactive Datalog engine in
 mind. Datalog supports recursive rules and is thus well suited to
 expressing subpattern queries on graphs, large n-way joins, and many
 other common, relational computations in a concise way. The base
-language can be easily extended into various directions (e.g. temporal
-patterns, or probabilistic queries). Languages such as SQL and its
-various dialects (as used in modern data-processing systems) use the
-same primitives.
+language can be easily extended into various domains (e.g. temporal
+patterns, or probabilistic queries).
 
-Any relational language relies on a small set of computational
-primitives: selections, joins, projections, and set union. As
-mentioned above, Datalog draws its expressive power from recursive
-rules, which can be supported via iteration to fixed point. On top of
-those primitives, we support stratified logical negation
-(\emph{negation as set difference}).
+Datalog and other relational languages (such as SQL and its dialects)
+relies on a small set of computational primitives: selections, joins,
+projections, and set union. Datalog draws its expressive power from
+recursive rules, which can be supported by iterating the query
+evaluation to fixed point. With each new iteration, facts derived in
+the previous evaluation are incorporated. The computation stops when
+it reaches a fixed point, i.e. when no new facts are derived in an
+iteration. On top of those primitives, we support stratified logical
+negation (\emph{negation as set difference}).
 
 Differential comes with a built-in two-way \texttt{join}
 operator. Selections correspond to Differential's \texttt{filter}
@@ -107,19 +108,21 @@ implemented as a \texttt{map} extracting the requested offsets from a
 stream of tuples. Set difference is implemented via the
 \texttt{antijoin} operator.
 
-Timely and Differential support local iteration to fixed-point,
+Timely and Differential support local iteration to fixed point,
 meaning parts of the dataflow graph can be iterated independently from
-one another, and from the overall computation itself. Complex
-iteration patterns, such as mutual recursion, can be expressed by
-means of Differential's \texttt{Variable} abstraction. Variables
-represent collections that are not completely defined yet.
+one another and from the overall computation itself. Complex iteration
+patterns, such as mutual recursion, can be expressed by means of
+Differential's \texttt{Variable} abstraction. Variables represent
+collections that are not completely defined until the entire dataflow
+is constructed.
 
 At the outset of this work, 3DF enforced set semantics over
-Differential's multi-sets, using the \texttt{distinct} operator. This
-changed over the course of this work. The reasons for this are
-detailed later in \autoref{set-vs-multiset}.
+Differential's multi-sets, via use of the \texttt{distinct}
+operator. This changed over the course of this work and multi-set
+semantics are now reflected as is. The reasons for this are detailed
+later in \autoref{set-vs-multiset}.
 
-Within 3DF query plans are represented as trees of operator
+Within 3DF, query plans are represented by trees of operator
 descriptions (\emph{plan stages}). In addition to plan stages for the
 operators described above, we provide stages for various aggregations
 on tuples, as well as data transforms and basic arithmetic via
@@ -136,5 +139,11 @@ The leaf nodes of a query plan are made up out of \emph{data
 \item \textbf{MatchAV := [?e a v]} reads all entity ids which have the
   value $v$ associated with them for attribute $a$.
 \end{itemize}
+
+This concludes our short summary of 3DF and its foundational
+technologies. We've covered how 3DF provides a baseline of dynamic,
+relational capabilities within an incremental, streaming setting. We
+also gave arguments for 3DF's somewhat extreme stance on data model
+flexibility and evolvability.
 
 \end{document}

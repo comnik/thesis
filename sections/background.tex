@@ -22,60 +22,65 @@ On the one hand, \emph{Dataflow} is an architectural paradigm in which
 the execution of a computation is coordinated entirely via the
 availability of data. This is in opposition to the von Neumann
 architecture, which uses control structures (sequential statements,
-branching via conditionals, loops) to coordinate the execution. Today,
+branching via conditionals, loops) to coordinate the execution. Today
 we often describe systems that follow this idea as \emph{reactive}.
 
 On the other hand, \emph{Dataflow programming} refers to a programming
-paradigm, in which the structure of a computation is expressed as a
-directed graph. This dataflow graph allows us to reason about
-(distributed) execution of the computation. In particular, it allows
-us to infer data dependencies and thus execution strategies that avoid
-re-computation of unaffected paths through the graph on new inputs. In
-the distributed setting, a fine-grained view of data dependencies
-allows us to exploit more opportunities for concurrent execution.
+paradigm in which the structure of a computation is expressed as a
+directed graph. This dataflow graph allows us to reason about the
+(potentially distributed) execution of the computation. In particular,
+it allows us to infer data dependencies and thus execution strategies
+that avoid recomputation of unaffected paths through the graph on new
+inputs. In the distributed setting, a fine-grained view of data
+dependencies allows us to exploit more opportunities for concurrent
+execution.
 
 \subsection{Progress Tracking}
 
 \emph{Timely Dataflow} (\cite{timely}) is an implementation of the
 cyclical dataflow model introduced in \cite{murray2013naiad}. It is
 written in the Rust language. Timely Dataflow follows a data-parallel
-approach, meaning each worker in a Timely cluster runs the same
-dataflow computation with inputs partitioned between them.
+approach, meaning each worker in a Timely cluster runs the exact same
+dataflow computation, with inputs partitioned between them.
 
 Dataflow computations over unbounded, potentially out-of-order inputs
 must reason about times at which it is safe to produce
 results. Producing results over-eagerly will keep latencies low, but
-causes downstream inconsistencies, because forwarded results do not
-include all relevant inputs. Likewise, holding results back for too
-long will ensure correctness but might increase latencies
-unnecessarily (taken to the extreme, this end of the spectrum
-corresponds to batch processing).
+causes downstream inconsistencies, due to forwarded results not
+incorporating all relevant inputs. Likewise, holding results back for
+too long ensures correctness, but increases latencies
+unnecessarily. Taken to the extreme, this end of the spectrum
+corresponds to batch processing.
 
 To solve this problem, a logical timestamp is attached to each datum
 and an order is imposed on them. The ordering controls visibility,
 thus detaching physical from logical availability. Taken together,
 propagating information about input epochs along the dataflow graph
-allows us to infer for which logical timestamps results might safely
-be produced.
+allows us to infer the set of logical timestamps for which it is safe
+to produce results.
 
 \emph{Progress tracking} is the problem of determining for each point
 in the dataflow the set of input timestamps that may still be received
-there. Timely Dataflow is a run-time for data-parallel dataflow
+there. This set is represented by a \emph{frontier} consisting of one
+or more mutually incomparable times. Inputs might still be received
+for any time in advance of any of the frontier elements. Conversely,
+results for times earlier than the frontier can be propagated
+safely. Timely Dataflow is a runtime for data-parallel dataflow
 computations that coordinate via fine-grained progress tracking.
 
-Without a co-ordination mechanism such as progress tracking, query
-results will in general not reflect a consistent logical time. While
-highly undesirable from a business point of view, this can also cause
+Without a coordination mechanism like progress tracking, query results
+will in general not reflect a consistent logical time. While highly
+undesirable from a business point of view, this can also cause
 non-terminating iterative computations.
 
 \subsection{Differential Dataflow} \label{background-differential}
 
 As the complexity of our computation grows and data volumes increase,
-we will want to avoid re-computing results from scratch whenever an
+we will want to avoid recomputing results from scratch whenever an
 input changes. Rather, we would like to incrementally update previous
-results with (hopefully) small changes. In particular we would like to
-do so even for iterative computations which arise in recursive
-queries.
+results with (hopefully) small changes. In particular, we would like
+to do so even for iterative computations, which arise in the
+evaluation of recursive queries.
 
 This model of computation is called \emph{incremental computation}. In
 order to incrementalize a computation $f(X) = Y$ on some collection
@@ -83,54 +88,53 @@ $X$ we must find a corresponding $\delta{f}$ s.t. $f(X + \delta{x}) =
 f(X) + \delta{f}(\delta{x}) = Y + \delta{y}$. To be of practical use,
 we require $\delta{f}$ to only perform work proportional to the size
 of $\delta{x}$. This can often be achieved whenever small input
-changes cause small output changes, compared to the size of the entire
-collection. In these cases we can hold on to the latest version of the
-output collection $Y$ and use it to more efficiently compute
+changes cause small output changes, as compared to the size of the
+entire collection. In these cases we can hold on to the latest version
+of the output collection $Y$ and use it to more efficiently compute
 $\delta{y}$.
 
 In a distributed setting with iterative computations, incremental
-computation faces a significant challenge, because we must distinguish
+computation faces a significant challenge because we must distinguish
 the \emph{latest version} of a collection under two possible sources
 of input (one from upstream and one from iterative
-feedback). Assigning totally ordered timestamps effectively serializes
-the computation, preventing us from computing iterations for batches
-of inputs in parallel.
+feedback). Assigning totally ordered timestamps prevents us from
+computing iterations for batches of inputs in parallel, effectively
+serializing the computation.
 
 \emph{Differential computation} (\cite{mcsherry2013differential})
 generalizes incremental computation by allowing timestamps to be
 partially ordered. This allows us to represent multiple different
-sources of inputs along different co-ordinates in a multi-dimensional
+sources of inputs along different coordinates in a multi-dimensional
 timestamp.
 
-Differential Dataflow (\cite{differential}) is a programming framework
-implementing differential computation on top of Timely. It allows to
-express data-parallel dataflow programs as functional-relational
-transformations over \emph{collections} of data, using incrementalized
-implementations of well-known operators such as \texttt{map},
-\texttt{filter}, \texttt{reduce}, and \texttt{join}. Any region of a
-differential dataflow can be independently iterated to fixed
-point. The entire computation responds efficiently to arbitrary
+\emph{Differential Dataflow} (\cite{differential}) is a programming
+framework implementing differential computation on top of Timely. It
+allows for the expression of data-parallel dataflow programs as
+functional-relational transformations over \emph{collections} of data,
+using incrementalized implementations of well-known operators such as
+\texttt{map}, \texttt{filter}, \texttt{reduce}, and \texttt{join}. Any
+region of a differential dataflow can be independently iterated to
+fixed point. The entire computation responds efficiently to arbitrary
 changes in its inputs. Collections implement multi-set semantics.
 
 Finally, the dynamic environments we are targeting necessitate the
 creation of new dataflows at runtime. New query dataflows will often
-require access to inputs that pre-date their creation, in order to
-give correct initial result sets. Having to retrieve historical inputs
-from external input sources would incur not just significant
-latencies, but also cause much tighter coupling than simple change
-data capture.
+require access to inputs that predate their creation, in order to give
+correct initial result sets. Having to retrieve historical inputs from
+external input sources would incur not just significant latencies, but
+also cause much tighter coupling than simple change data capture.
 
 Differential Dataflow has first-class support for compact in-memory
-representation of historical collection traces, via so called
+representations of historical collection traces, via so called
 \emph{arrangements}. Arrangements maintain compacted, indexed batches
 of updates to a collection. The resulting indexed state can be shared
-between operators and allows for the dynamic creation of dataflows
-that can feed off of them.
+between operators, and allows for the efficient, dynamic creation of
+dataflows that can feed off of them.
 
 To our knowledge, Differential Dataflow is the only system that can
 (a) maintain the performance characteristics of stream processors for
-complex relational computations, such as required by recursive SQL
-queries or the evaluation of Datalog rules, and that (b) allows for
+complex relational computations, as required by recursive SQL queries
+or the evaluation of Datalog rules, and that (b) allows for
 low-latency, shared access to historical inputs.
 
 \end{document}

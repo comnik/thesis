@@ -10,14 +10,14 @@ heterogeneous sources streams into the system.
 We are therefore tackling the problem of multi-query optimization,
 which is distinct from single-query optimization inasmuch as we do not
 concern ourselves with producing optimal execution strategies for any
-single query. Rather, we want to limit the number of ``disastrous''
-plans picked, because those have an outsized negative effect on
+single query. Rather, we want to \emph{limit the number of disastrous
+  plans} picked, because those have an outsized negative effect on
 \emph{all} users of the system. Our priorities are as follows:
 
 \begin{enumerate}
-  \item \textbf{Robustness} Above all, we would like for the resulting
-    system to match user expecations, perform consistently well, and
-    in a predictable manner.
+  \item \textbf{Robustness} Above all we would like for the resulting
+    system to match user expecations, and to perform consistently well
+    and in a predictable manner.
 
   \item \textbf{Multi-user Support} In order to be useful as a
     general-purpose system, we must support many concurrent use cases
@@ -34,43 +34,46 @@ plans picked, because those have an outsized negative effect on
 
 To this end, we will in \autoref{background} first provide some
 background on the data-parallel dataflow model, modern stream
-processors, and differential computation. \autoref{3df} describes 3DF,
-a streaming relational query engine we've built previously, that will
-serve as a baseline and reference implementation. 3DF enforces a
-highly opinionated data model that fundamentally affects all other
-considerations made throughout this work. We motivate these opinions
-and provide a short overview of the state of 3DF before this work.
+processors, and differential computation. Section \ref{3df} describes
+3DF, a streaming relational query engine we've built in previous work,
+that will serve as a baseline and reference implementation. 3DF
+enforces a highly opinionated data model that fundamentally affects
+all other considerations made throughout this work. We motivate these
+opinions and provide a short overview of the state of 3DF before this
+work.
 
-\autoref{known-techniques} is a survey of existing optimization
+Section \ref{known-techniques} is a survey of existing optimization
 strategies from both the database and the stream processing
-communities and a discussion of their applicability to our setting.
+communities, and a discussion of their applicability to our setting.
 
 Across the subsequent chapters we then cover what we have found to be
 the most significant obstacles that a system such as 3DF must overcome
-to satisfy the above properties. These are (in no particular order):
-the over-eager implementation of queries in a dynamic environment
+in order to satisfy the robustness, usefulness in multi-user
+environments, and performance properties identified in the previous
+chapter. These are (in no particular order): the over-eager
+implementation of queries in a dynamic environment
 (\autoref{case-eagerness}), the explosion of intermediate state
 produced by high-arity joins (\autoref{case-join-state}), the robust
 estimation of join cardinalities (\autoref{case-join-ordering}), and
 navigating the trade-off between highly generalized plans whose
 resources can be shared between many users and highly specialized
-plans who can exploit additional optimization opportunities
+plans that can exploit additional optimization opportunities
 (\autoref{case-redundant-dataflows}).
 
-For each of these we describe the problems in general terms, provide
+For each of these we describe the problem in general terms, provide
 specific examples, propose strategies to remediate them, and evaluate
 our implementation of these proposals. Implementation details on all
 techniques discussed are provided later in \autoref{implementation}.
 
-\autoref{case-skew} provides a similar analysis of the adverse effects
-of non-uniformly distributed workloads and how certain aspects of
-relational operators and 3DFs data model might exacerbate this
+Section \ref{case-skew} provides a similar analysis of the adverse
+effects of non-uniformly distributed workloads and how certain aspects
+of relational operators and 3DFs data model might exacerbate this
 problem. While we do propose solutions, these are not implemented in
-3DF at the time of this writing and.
+3DF at the time of this writing.
 
 We close with a discussion of less significant challenges discovered
 over the course of this work, as well as of opportunities for further
-work, in \autoref{future-work}, and summarize our contributions in
+work in \autoref{future-work}, and summarize our contributions in
 \autoref{conclusions}.
 
 \end{document}

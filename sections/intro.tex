@@ -12,32 +12,35 @@ From an end user perspective, any results derived from the data
 flowing through an organization should above all be correct,
 incorporate the most recent data available, and reflect a consistent
 view of the organization as of some point in time. Additionally, it is
-not acceptable any longer to hold information in mutable cells. Rather
-information must be recorded in such a way, that historical states can
-be recovered for analytical and auditing purposes.
+not acceptable any longer to hold information in mutable
+cells. Rather, information must be recorded in such a way that
+historical states can be recovered for analytical and auditing
+purposes.
 
-To that end, many companies are starting to adapt event-driven
-architectures, in which data producers and consumers are uncoupled via
-a shared, append-only log of records. Services coordinate reactively,
-via the arrival of new data. While this approach makes for
+To that end, many companies are starting to adopt event-driven
+architectures in which data producers and data consumers are uncoupled
+via a shared, append-only log of records. Services coordinate
+reactively, via the arrival of new data. While this approach makes for
 understandable, flexible systems, it puts a larger burden on data
-consumers to construct and maintain consistent, up-to-date views on
-the subset of information that is relevant to them.
+consumers to construct and \emph{maintain consistent, up-to-date
+  views} on the subset of information that is relevant to them.
 
 Purpose-built stream processing systems can meet very high throughputs
-and near real-time latencies, but lack support for expressive
-programming models and strong consistency guarantees. Specialized
+and near real-time latencies on this task, but lack support for
+expressive programming models and strong consistency guarantees. This
+puts a significant burden on application developers. Specialized
 graph-, OLAP-, and time-series databases on the other hand support
-much more complex algorithms, but their ad-hoc interaction model does
-not fit well into reactive, near real-time environments.
+strong consistency and complex queries, but their ad-hoc interaction
+models do not fit well into reactive, near real-time environments.
 
-Only recently have dataflow systems emerged, that support strongly
+Only recently have dataflow systems emerged that support strongly
 consistent, incremental maintenance of complex computations over
 high-throughput data streams. The resulting systems respond
 efficiently to unbounded, arbitrarily changing inputs, support
 distributed execution out-of-the-box, and thus provide a foundation
-onto which data consumers can off-load view maintenance. These systems
-sit at the intersection of databases and stream processing and thus
-merit re-visiting established practices in both fields.
+onto which data consumers can effectively off-load view
+maintenance. These systems therefore sit at the intersection of
+databases and stream processing, and thus merit re-visiting
+established practice in both fields.
 
 \end{document}

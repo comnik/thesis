@@ -46,20 +46,21 @@ guarantees.
 
 \emph{Differential computation} generalizes incremental computation to
 support data-parallel relational operators and arbitrarily nested,
-least fixed point iteration. In this work we identify the challenges
-to providing these new capabilities to dynamic multi-user environments
+least fixed point iteration. \emph{3DF} utilizes differential
+computation to provide continuous, incremental evaluation of Datalog
+queries over data streams. In this work we identify the challenges to
+providing these new capabilities to dynamic multi-user environments
 and describe solutions adapted from the database and stream processing
 communities.
 
-We implement our findings in \emph{3DF}, an interactive Datalog engine
-built on \emph{Differential Dataflow}, an implementation of
-differential computation. We evaluate the resulting system and
-showcase in particular (I) the use of delta-queries to maintain joins
-of arbitrary arity with a constant memory footprint, (II) the use of
-worst-case optimal join algorithms to provide predictable query
-performance on adversarially skewed data, and (III) strategies to
-share resources between clients without giving up individual
-optimization opportunities.
+We implement our findings in 3DF and \emph{Differential Dataflow}, an
+implementation of differential computation. We evaluate the resulting
+system and showcase in particular (I) the use of delta-queries to
+maintain joins of arbitrary arity with a constant memory footprint,
+(II) the use of worst-case optimal join algorithms to provide
+predictable query performance on adversarially skewed data, and (III)
+strategies to share resources between clients without giving up
+individual optimization opportunities.
 
 \newpage
 

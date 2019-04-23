@@ -10,8 +10,8 @@ databases. We have also introduced 3DF as a prototype of such a
 system.
 
 In this chapter we will survey the decades of research on optimizing
-both, relational query processing and streaming computations, and
-discuss to what extent these techniques could aid us in making 3DF fit
+both relational query processing and streaming computations, and
+discuss to what extent these techniques can aid us in making 3DF fit
 for use in highly dynamic, multi-user environments.
 
 \subsection{Cost-Based Query Planning}
@@ -33,24 +33,24 @@ paths represent the different ways of accessing the tuples in a
 relation. The simplest access path is a full scan of the relation, but
 various indices might be available as well.
 
-For queries that don't involve joins the System R planner employs a
-cost model incorporating statistics gathered on the expected
-selectivity of each access path available to service each of the
-requested selection predicates. Additionally, the planner will check
-whether the desired output ordering matches the order provided by any
-suitable access path.
+For queries that don't involve joins, the System R planner employs a
+cost model incorporating statistics on the expected selectivity of
+each access path available to service each of the requested selection
+predicates. Additionally, the planner will check whether the desired
+output ordering matches the order provided by any suitable access
+path.
 
 The complete cost model is somewhat more complex, because it allows
-for a weighting between I/O and CPU cost and must deal with the fact
-that memory segments will contain tuples from different
+for a weighting between I/O and CPU cost, and because it must deal
+with the fact that memory segments will contain tuples from different
 relations. Therefore the cost of scanning through a seemingly small
 relation might be much higher in reality. Given this cost model, the
 planner can pick the cheapest access path to service the query.
 
-Of course, the more interesting case is that involving multiple
+Of course the more interesting case is that involving multiple
 relations, which must be joined together. Given the cost model for
 queries on individual relations, the planner now has to enumerate join
-order permutations, compute overall cost, and pick the cheapest
+order permutations, compute the overall cost, and pick the cheapest
 overall plan. Simple heuristics are used to reduce the number of
 permutations under consideration.
 
@@ -58,10 +58,10 @@ Many variants and improvements on this architecture have been proposed
 over the years, most notably so in a long line of research by Graefe
 et al. (\cite{graefe1987exodus}, \cite{graefe1993volcano}, and
 \cite{graefe1995cascades}). These architectures vary in their plan
-enumeration strategies (bottom-up vs top-down) and improve the
-extensibility of the planning architecture. The basic approach of
-heuristics-based cost estimation combined with plan enumeration stays
-the same.
+enumeration strategies (bottom-up vs top-down), and improve the
+extensibility of the planning architecture. They share however the
+basic approach of heuristics-based cost estimation in combination with
+plan enumeration.
 
 \subsection{Cardinality Estimation}
 
@@ -78,21 +78,21 @@ the cardinality model.
 It is well established, that cardinality estimation is both the most
 important part of cost-based query planning, as well as the hardest to
 get right. \cite{leis2015good} show that estimation errors grow
-exponentially with the number of joins for a representative selection
-of modern relational DBMS. They also show that correct cardinality
-estimates are much more important for plan performance than more
-accurate cost models. Due to 3DFs highly normalized data model, a
-large class of relevant queries require multi-way joins across many
-base relations. This implies that 3DF would be exceedingly sensitive
-to these kinds of ballooning errors.
+exponentially with the number of joins, for a representative selection
+of real-world, relational DBMS. They also show that correct
+cardinality estimates are much more important for plan performance
+than more accurate cost models. Due to 3DFs highly normalized data
+model, a large class of relevant queries require multi-way joins
+across many base relations. This implies that 3DF would be exceedingly
+sensitive to these kinds of ballooning errors.
 
 Neither the importance of cardinality estimation, nor the difficulty
 of doing it accurately are surprising. Until recently, most strategies
 for planning multi-way joins consisted of breaking down a n-way join
 into a (hopefully optimal) sequence of two-way joins. In such a
 setting, accurately estimating the number of tuples contained in the
-result set of joining two relations is crucial in order to pick a plan
-that materializes as few tuples as possible. Even slightly
+result set of joining two relations is crucial, in order to pick a
+plan that materializes as few tuples as possible. Even slightly
 over-optimistic selectivity estimates can cause cardinality estimation
 errors proportional in the size of the input relations.
 
@@ -102,11 +102,11 @@ same assumptions originally proposed for System R.
 \begin{itemize}
 \item \textbf{Uniformity}
 
-  Uniformity is the assumption, that the values in an attribute are
+  Uniformity is the assumption that the values in an attribute are
   uniformly distributed. Under this assumption, the selectivity of
   predicates on any specific value is computed simply as the inverse
   of the domain cardinality of the attribute. This is of course a
-  naive assumption, as attributes in the real-world tend to exhibit a
+  naive assumption, as attributes in the real world tend to exhibit a
   certain bias, e.g. age and location of users of a specific service.
 
 \item \textbf{Principle of Inclusion}
@@ -114,7 +114,7 @@ same assumptions originally proposed for System R.
   \cite{selinger1979access} give the selectivity of a relational
   equi-join on two columns as the inverse of the greater of their
   domain cardinalities. This assumes that the domains of the two
-  columns overlap. On otherwise unselected columns with appropriate
+  columns overlap. On otherwise unfiltered columns with appropriate
   referential constraints between them, this assumption is valid. As
   soon as we apply other selection predicates before joining, this
   assumption will not hold in general.
@@ -127,12 +127,12 @@ same assumptions originally proposed for System R.
   first glance, with the good relational practice of normalizing data
   models in mind, this seems like a reasonable assumption, it quickly
   breaks down on real-world data. A simple example might be the two
-  attributes ``age'' and ``salary'', which tend to correlate in most
-  organizations. Breaking such functional dependencies down into more
-  fundamental, independent attributes and combining them with
-  intricate models necessary to re-derive salaries is not feasible in
-  practice. Often relations are the most succinct and pragmatic way to
-  model a functional dependency.
+  attributes \texttt{:age} and \texttt{:salary}, which tend to
+  correlate in most organizations. Breaking such functional
+  dependencies down into more fundamental, independent attributes, and
+  combining them with intricate models necessary to re-derive
+  salaries, is not feasible in practice. Often relations are the most
+  succinct and pragmatic way to model such functional dependencies.
 
 \item \textbf{Global Information}
 
@@ -156,9 +156,9 @@ potentially unbounded streams.
 In the previous section we have seen that traditional approaches to
 cardinality estimation (and thus to join ordering and query planning
 at large) are susceptible to exponentially compounding estimation
-errors due to the use of simplistic heuristics and furthermore can not
-be translated into the continuous query processing setting, due to the
-unavailability of \emph{any} meaningful statistics.
+errors, due to the use of simplistic heuristics, and furthermore can
+not be translated into the continuous query processing setting, due to
+the unavailability of \emph{any} meaningful statistics.
 
 An additional problem arises in this context, because even when
 accurate heuristics are available at query planning time, they might
@@ -169,52 +169,52 @@ multi-user environment, queries might live anywhere from a few seconds
 to months or even years — ample time for the underlying distributions
 to change dramatically.
 
-Adaptive query processing explores the idea, that in environments
-where disastrous plans are to be expected every once in a while, and
-planning assumptions change constantly over time, then systems should
-be able to adapt planning decisions on the fly.
+Adaptive query processing explores the idea that in environments where
+disastrous plans are to be expected every once in a while, and
+planning assumptions change constantly over time, systems should be
+able to adapt their planning decisions on the fly.
 
 \cite{avnur2000eddies} introduce a new query processing architecture,
 called \emph{eddy}, which ``continuously reorders operators in a query
-plan as it runs''. In a dataflow settings, this is best imagined as an
+plan as it runs''. In a dataflow setting, this is best imagined as an
 additional dataflow operator routing input tuples between a set of
 candidate operators. The routing logic is then adapted, based on the
-measured flow of tuples from each of the candidate operators.
+measured flow of tuples from and to each of the candidate operators.
 
 A significant challenge in \cite{avnur2000eddies} is the problem of
 identifying \emph{moments of symmetry}, synchronization points within
-the processing pipeline, at which operator inputs can be re-ordered
-without the need to modify the accumulated operator state (which can
-be on the order of the entire input relation for joins). They analyse
+the processing pipeline, at which operator inputs can be reordered
+without the need to modify the accumulated operator state, which can
+be on the order of the entire input relation for joins. They analyse
 various families of join algorithms under this new
 criterium. Differential's incremental join operator is entirely
-co-ordinated by its inputs and, in combination with logical
-timestamps, might not necessarily be affected by the same
-considerations. However an exact translation of eddies into
-Differential would require more investigation.
+coordinated by its inputs and, in combination with logical timestamps,
+might not necessarily be affected by the same considerations. However
+an exact translation of eddies into Differential Dataflow would
+require more investigation.
 
 A complementary approach to the adaptive query processing problem is
 that of \emph{progressive optimization}, as employed by
 \cite{markl2004robust}. This work extends the query processing
-pipeline with a re-optimization step, validating cardinality estimates
-against the actual values measured during execution of a previous
-query. Re-optimization imposes a synchronization barrier on the
-processing pipeline, which is inappropriate for long-lived,
+pipeline with a reoptimization step, during wich cardinality estimates
+are validated against the actual values measured during execution of a
+previous query. Reoptimization imposes a synchronization barrier on
+the processing pipeline, making it inappropriate for long-lived,
 low-latency dataflows.
 
-While the specifics of an adaptive query processing primitive would
-therfore likely be different in Differential Dataflow, the motivating
-observations clearly apply.
+However, while the specifics of an adaptive query processing primitive
+would therefore likely be different in Differential Dataflow, the
+motivating observations clearly apply to our setting.
 
 \subsection{Worst-Case Optimal Join Processing} \label{technique-wco}
 
 Taken to their logical conclusion, the ideas from adaptive query
 processing lead to the nascent field of worst-case optimal join
-processing. Here the fundamental observation is, that the traditional
+processing. Here the fundamental observation is that the traditional
 approach to multi-way joins (consecutive two-way joins, or
 \emph{join-at-a-time}) will always be sub-optimal for certain queries,
 because they generate intermediate results that can be larger than the
-final result set.
+final result set could ever be.
 
 The initial work on worst-case optimal join algorithms is due to
 \cite{ngo2012worst}, with independent results by
@@ -246,32 +246,34 @@ Under these assumptions, each extension stage of a GenericJoin will
 only do work on the order of the largest possible result set. Picking
 suitable variable orderings is a crucial part of these new
 algorithms. While sub-optimal orderings do not affect the theoretical
-guarantees, they can make a significant difference in
-practice. Intuitively, this is because the maximum size of the result
-set is itself dependent on the variable ordering.
+guarantees, they can make a significant difference in practice. In
+other words, while the number of materialized tuples might not exceed
+the worst-case bound on the size of the result set, that bound can
+still be to loose for good performance in practice.
 
-\cite{ciucanu2015worst} apply ideas from worst-case optimal join
-within the framework of \emph{factorized databases}. They show, that
-worst-case optimal complexity can be achieved with join-at-a-time
-plans as well, by eliminating redundancy from the representation of
-intermediate results.
+\cite{ciucanu2015worst} apply ideas from the theory behind worst-case
+optimal join algorithms within the framework of \emph{factorized
+  databases}. They show that worst-case optimal complexity can be
+achieved with join-at-a-time plans as well, by eliminating redundancy
+from the representation of intermediate results.
 
 More recently, \cite{ammar2018distributed} give worst-case optimal
 join algorithms for the data-parallel dataflow setting. The resulting
 operators are very much reminiscent of eddies, in that they make
 planning decisions on a per-tuple basis. They also extend the
-worst-case optimality to cover communication costs between workers.
+worst-case optimality guarantee to cover communication costs between
+workers.
 
 Worst-case optimal join algorithms are therefore promising for two
-reasons. One, they extend the class of queries for which we can hope
-to find non-disastrous plans and for which no optimal two-way join
-ordering exists. Second, they implement a very granular,
+reasons. For one, they extend the class of queries for which we can
+hope to find non-disastrous plans, and for which no optimal two-way
+join ordering exists. Second, they implement a very granular,
 non-heuristical form of adaptive query processing without the need for
 synchronized re-optimization points. We make use of an adapted version
 of the worst-case optimal join algorithm by
 \cite{ammar2018distributed} in \autoref{case-join-ordering}, in order
-to provide predictable query performance without relying on
-heuristics.
+to provide predictable query performance without relying on heuristic
+cardinality estimation.
 
 \subsection{Continuous Query Processing}
 
@@ -280,15 +282,16 @@ computation is of course not a new idea, and commonly known as
 \emph{incremental view maintenance}. Early treatments such as
 \cite{terry1992continuous} identify the shortcomings of
 non-incremental, periodic execution of queries, propose continuous
-incremental maintenance and identify interesting semantics aspects,
-such as the need for stratified negation. Their \emph{Tapestry} system
-however supports only monotonic queries over append-only workloads on
-a single thread. Differential Dataflow provides the same incremental
-semantics while supporting retractions and distributed execution.
+incremental maintenance as a solution, and identify interesting
+semantics aspects, such as the need for stratified negation. Their
+\emph{Tapestry} system however supports only monotonic queries over
+append-only workloads on a single thread. Differential Dataflow
+provides the same incremental semantics, while supporting retractions
+and distributed execution.
 
 \cite{blakeley1986efficiently} introduce the concept of
 \emph{differential re-evaluation} of views. In particular, they
-exploit the associativity of the join operator and observe that, for
+exploit the associativity of the join operator and observe that for
 changes to a single relation, $A' \bowtie B = (A + \delta{a}) \bowtie
 B = (A \bowtie B) + (\delta{a} \bowtie B)$ — implying that the
 relational join operator is already incrementalized w.r.t. changes to
@@ -301,7 +304,7 @@ incrementalized join operation w.r.t. to arbitrary changes to
 
 We adopt this approach in \autoref{case-join-state}, in order to
 incrementally process high-arity joins with only a constant memory
-footprint in addition to the arranged base relations.
+footprint in addition to the indexed base relations.
 
 \subsection{Stream Optimization}
 
@@ -317,7 +320,7 @@ a few.
     move more selective operators upstream, in order to minimize the
     number of tuples propagated downstream. Selectivity in this
     setting is treated mostly at the level of operator types
-    (e.g. \texttt{Filter} has a higher selectivity than \texttt{Map}).
+    (e.g. \texttt{filter} has a higher selectivity than \texttt{map}).
 
   \item \textbf{Redundancy Elimination} attempts to remove redundant
     operators, e.g. by moving equivalent operators on two branches of
@@ -338,13 +341,14 @@ these operators upstream might thus severely reduce the re-usability
 of a dataflow trunk, while significantly reducing the number of tuples
 flowing downstream. Hirzel et al. cite more sophisticated techniques
 to share dataflow elements in a multi-tenant setting. We will come
-back to these in \autoref{case-redundant-dataflows}.
+back to these in \autoref{case-redundant-dataflows} to find
+strategies, that are not affected by this trade-off.
 
 A similar trade-off arises between separation of operators into
-smaller computational steps in order to exploit pipeline parallelism,
-and merging of operators into larger units, in order to minimize
+smaller computational steps in order to exploit pipeline parallelism
+and the merging of operators into larger units, in order to minimize
 communication and scheduling overheads. For example, multiple
-transform or filter stages can be merged into a single one, by
+transform or filter stages can be merged into a single one by
 composing their transformation functions / predicates, and vice versa.
 
 Most of the techniques explored in this line of inquiry are geared
@@ -425,11 +429,12 @@ the above sections, the reasons for this are manifold:
     but a common occurrence in real-world planners.
 
   \item
-    In our setting, we must implement computations \emph{before} any
-    data (and thus any heuristics) are available. Data sources are
-    heterogeneous, live outside of 3DF and will often not provide the
-    necessary statistics. This invalidates the assumption of
-    global-knowledge that traditional query planners operate under.
+    In our setting, we will often have to implement computations
+    \emph{before} any inputs (and thus any heuristics) are
+    available. Data sources are heterogeneous, live outside of 3DF,
+    and will often not provide the necessary statistics. This
+    invalidates the assumption of global-knowledge that traditional
+    query planners rely on.
 
   \item
     Even in clean, normalized data models, certain correlations
@@ -453,9 +458,9 @@ In the following chapters, we will now focus on what we believe to be
 the most significant challenges facing any system that wishes to
 provide continuously evaluated, complex relational queries to many
 interactive clients with predictable, consistently good
-performance. For each we will describe the problem, first in general
-terms and then alongside specific examples. We will then describe and
-evaluate potential remedies, based on the techniques we have explored
+performance. For each, we will describe the problem in general terms
+first, and then alongside specific examples. We will then describe and
+evaluate potential remedies based on the techniques we have explored
 in this chapter.
 
 \end{document}
