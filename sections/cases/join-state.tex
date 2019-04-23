@@ -13,13 +13,14 @@ is therefore the defining problem of the 3DF architecture.
 Join operators must maintain state to buffer inputs on either side,
 until matching inputs from the other side arrive (and vice versa) or
 the epoch closes. Systems like Kafka Streams enforce sliding,
-fixed-size window semantics (\cite{kafkadocs}) to bound the state
-maintained by a join operator. Differential Dataflow maintains such
-state in arrangements (c.f. chapter \ref{background-differential})
-that are compacted as the computation makes progress (i.e. epochs are
-completed). Differential's \texttt{join} operator will therefore
-arrange both of its input collections on the join variables, should
-they not already be available in arranged form.
+fixed-size window semantics (\cite{kafkadocs}) to put a bound on the
+state maintained by each join operator. Differential Dataflow
+maintains such state in arrangements (c.f. chapter
+\ref{background-differential}) that are compacted as the computation
+makes progress (i.e. epochs are completed). Differential's
+\texttt{join} operator will therefore arrange both of its input
+collections on the join variables, should they not already be
+available in arranged form.
 
 For higher-arity joins this becomes problematic, because the output of
 the first two-way join will be fed as an input into the second two-way
@@ -69,16 +70,17 @@ the following query.
 \end{verbatim}
 
 This query requires a seven-way join on all person ids, aggregating
-seven different person attributes back into an aggregate view. Within
-the LDBC dataset, every person carries all seven of these
-attributes. Therefore all relations are of the same size and map
-one-to-one from person ids to the associated values. Because of this,
-implementing this query as six consecutive two-way joins leads to a
-five-fold increase in the number of tuples maintained by this
-dataflow, \emph{independent of the chosen join order}.
+seven different person attributes back into a consistent view of each
+person. Within the LDBC dataset (\cite{erling2015ldbc}) for example,
+every person carries all seven of these attributes. Therefore all
+relations are of the same size and map one-to-one from person ids to
+the associated values. Because of this, implementing this query as six
+consecutive two-way joins leads to a five-fold increase in the number
+of tuples maintained by this dataflow \emph{regardless of the chosen
+  join order}.
 
-We encounter an even more pronounced version of this problem, when
-looking at sub-graph queries, such as the triangle search:
+We encounter an even more pronounced version of this problem on cyclic
+sub-graph queries, such as the triangle search:
 
 \begin{verbatim}
 [:find ?a ?b ?c
@@ -90,8 +92,8 @@ looking at sub-graph queries, such as the triangle search:
 
 Here the attributes do not have a one-to-one correspondence anymore (a
 few celebrities might have in-degrees in the millions, whereas most
-people are in mutual friendship with a few hundreds) and join order
-becomes crucially important.
+people are in mutual friendship with a few hundred others) and
+intermediate result sets can grow super-linearly.
 
 \subsection{Remedy}
 
@@ -144,18 +146,18 @@ described later in \autoref{impl-altneu}.
 
 We show that joins of arbitrary arity implemented with delta queries
 maintain no intermediate tuples, whereas the same joins implemented as
-join-at-a-time plans store intermediate tuples proportional to the
+join-at-a-time plans store intermediate tuples in proportion to the
 size of the base relations and the arity of the join. Both approaches
 require base relations in arranged form, which are shared across all
 queries. We find that delta queries do not adversely affect update
 latencies in a significant way.
 
-Using the LDBC (\cite{erling2015ldbc}) data generators we generated a
-dataset simulating the social network activity of ~10,000 persons. On
-this we ran subsets of the above conjunctive query on attributes of
-persons, increasing the number of clauses participating in the join
-with each run. These runs were performed with the dataset fully loaded
-into 3DF and without streaming updates.
+Using the LDBC data generators we generated a dataset simulating the
+social network activity of ~10,000 persons. On this we ran subsets of
+the above conjunctive query on attributes of persons, increasing the
+number of clauses participating in the join with each run. These runs
+were performed with the dataset fully loaded into 3DF and without
+streaming updates.
 
 During each run we measured the number of tuples maintained across
 arrangements within the query dataflow. Differential provides event
@@ -191,14 +193,20 @@ instrumentation are covered in \autoref{logging}.
 arrangements, after each join produced a complete initial result
 set. Tuple counts are broken down into those held in base relations,
 which are shared across all queries, and those stored in intermediate
-arrangements created by the join operator. We observe that, for
+arrangements created by the join operator. We observe that for
 join-at-a-time plans, the number of arranged intermediate tuples grows
-as more attributes participate, whereas no intermediate tuples are
-stored when using delta queries. Note that our join-at-a-time
-implementation does not yet make full use of all available base
-relations for higher arities. An optimal implementation should be
-expected to produce around half the absolute number of intermediate
-tuples.
+linearly with the arity of the join, whereas no intermediate tuples
+are stored when using delta queries on joins of arbitrary arity. Note
+that our join-at-a-time implementation does not yet make full use of
+all available base relations for higher arities. An optimal
+implementation should be expected to produce around half the absolute
+number of intermediate tuples.
+
+Arguably join-at-a-time plans allow for a lower overall memory
+footprint if the number of queries is low and join arities are small
+in comparison to the number and size of base relations, because
+reverse indices on base relations wouldn't have to be
+maintained. However these assumptions do not hold for our setting.
 
 \begin{figure}[h!]
   \includegraphics[width=1.0\linewidth]{results/join-state/out/all_cdfs}
@@ -232,11 +240,12 @@ Additionally, delta queries decouple space from time complexity. Using
 traditional tree joins, a sub-optimal join plan incurs both a heavy
 computational cost as well as space overheads, due to the sheer number
 of intermediate tuples materialized and maintained in
-arrangements. Delta queries would still have to spend time processing
-large numbers of tuples, but without the need to index them.
+arrangements. Delta queries still have to spend time processing large
+numbers of tuples, but without the need to index them at intermediate
+stages.
 
-While we must take measures to keep the overall size of the dataflow
-manageable (as will be the topic of
+While we must at some point take measures to keep the overall size of
+the dataflow manageable (as will be the topic of
 \autoref{case-redundant-dataflows}), we conclude that delta queries
 are a powerful technique in many common scenarios.
 
