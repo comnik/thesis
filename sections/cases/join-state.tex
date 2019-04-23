@@ -215,10 +215,9 @@ maintained. However these assumptions do not hold for our setting.
   \medskip
   \small
 
-  Complementary CDFs of join completion times for each round of
-  inputs, when streaming inputs into pre-registered joins of
-  increasing arity. Delta queries do not adversely effect update
-  latencies.
+  Join completion times for each round of inputs, when streaming
+  inputs into pre-registered joins of increasing arity. Delta queries
+  do not adversely affect update latencies in a significant way.
 \end{figure}
 
 We then inverted the setup, first creating join dataflows before
@@ -226,7 +225,9 @@ streaming in all person attributes from the LDBC dataset. We measured
 completion times for each distinct batch of inputs. The resulting
 distributions are shown in \autoref{fig:arity-latencies}. We observe
 that both join strategies produce very similar distributions with
-increasing arity.
+increasing arity. We observe that delta queries do not adversly affect
+latencies in a significant way, even though join-at-a-time plans
+achieve a slightly lower overall profile.
 
 Delta queries thus allow us to trade dataflow size in return for a
 predictable memory footprint, and to do so without affecting latencies
