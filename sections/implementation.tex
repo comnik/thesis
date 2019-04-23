@@ -3,7 +3,7 @@
 \begin{document}
 
 In this chapter and the following, we will cover in greater detail the
-changes and extensions to 3DF, that we implemented over the course of
+changes and extensions to 3DF that we implemented over the course of
 this work. This chapter covers logging and other instrumentation that
 was added to perform the experiments, the move from eager to deferred
 synthesis, and support for multi-tenant dataflows, whereas the next
@@ -41,12 +41,6 @@ performs some pre-processing on the raw logging streams, converting
 hierarchical scope addresses into the corresponding edges of the
 dataflow graph.
 
-\begin{lstlisting}[language=json][h!]
-{:TimelyLogging
-  {:attributes [:timely.event.operates/name
-                :timely.event.operates/shutdown?]}}
-\end{lstlisting}
-
 Similarly, the \texttt{DifferentialLogging} source will not expose
 batching and merging events directly, but rather derive from them
 changes to the number of tuples held by each arrangement. Batch events
@@ -73,13 +67,13 @@ For making accurate measurements it also became necessary to side-step
 3DFs default behaviour of forwarding results directly back to clients,
 as doing so would introduce serialization and network latency. We
 therefore introduced a new type of plan stages called \emph{sinks}, as
-well as a measurement sink implementation. This sink will swallow all
-its inputs and keep track of the computational frontier. Whenever the
-frontier advances (thus indicating the completion of a round of
-inputs), it will append the number of milliseconds since the close of
-the previous epoch to a logfile. It will also report whenever the
-frontier becomes empty, indicating the completion of the entire
-computation.
+well as a sink implementation for handling our measurements. This sink
+swallows all its inputs and keeps track of the computational frontier
+across all workers. Whenever the frontier advances (thus indicating
+the completion of a round of inputs), it will append the number of
+milliseconds since the close of the previous epoch to a logfile. It
+will also report whenever the frontier becomes empty, indicating the
+completion of the entire computation.
 
 We then extended the 3DF API in order to allow clients to specify an
 optional sink configuration that, when provided, will cause 3DF to
@@ -122,11 +116,11 @@ creates operator and channel identifiers based on their creation
 order. Redundant dependencies are removed.
 
 At this point a decision can be made for each named dependency, for
-which an existing arrangement is available, on whether to re-use the
+which an existing arrangement is available, on whether to reuse the
 arrangement or resolve the dependency into its bindings and
 re-synthesize them from scratch. For the reasons explored in chapter
 \ref{case-redundant-dataflows}, the default policy is to always
-synthesize from scratch, re-using only attributes indices.
+synthesize from scratch, reusing only attribute indices.
 
 With these changes, clients can define complex queries interactively,
 across many different rules, without bringing the system to a
@@ -179,8 +173,8 @@ within the output tuples.
 What remains is the correct routing of results back to clients,
 according to the tenant token in each output tuple. This way, a given
 tenant only sees the results that are of interest to them. Our current
-implementation re-uses the connection tokens assigned by the WebSocket
-server. Client tokens are unsigned 64-bit integers.
+implementation re-uses the connection tokens assigned by 3DF's
+WebSocket server. Client tokens are unsigned 64-bit integers.
 
 Timely Dataflow makes use of \emph{exchange pacts} to define how data
 is routed between operators. For single-tenant dataflows, all workers

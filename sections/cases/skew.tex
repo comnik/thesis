@@ -10,8 +10,7 @@ can evolve with the needs of an organization and provide the
 foundation on which the entire expressive range of a language like
 Datalog is implemented. While continuously changing data distributions
 posed a challenge to traditional methods of cardinality estimation,
-they skewed datasets cause additional problems in a distributed
-setting.
+skewed datasets cause additional problems in a distributed setting.
 
 Skew problems arise whenever inputs are not distributed evenly across
 workers. For stateless operators such as \texttt{map} or
@@ -47,11 +46,11 @@ indices, which would then be stored entirely on a single worker.
 
 \subsection{Remedies}
 
-Skew in this scenario is caused by the requirement arranged state be
-distributed according to its keys. To remediate this, we must modify
-operator implementations to either still produce correct outputs when
-individual workers might not see all inputs on a specific key or
-obviate the need for the skewed indices entirely.
+Skew in this scenario is caused by the requirement that arranged state
+be distributed according to its keys. To remediate this, we must
+modify operator implementations to either still produce correct
+outputs when individual workers might not see all inputs on a specific
+key or obviate the need for the skewed indices entirely.
 
 \cite{ammar2018distributed} propose a skew resilient version of the
 \emph{Delta-BiGJoin} algorithm. Its implementation and adaption to 3DF
@@ -65,8 +64,16 @@ sub-optimal modeling of features.
 
 Instead, we can extend our worst-case optimal join framework slightly,
 to cover unary relations. Unary relations bind only a single variable
-and thus don't require reverse indices. \autoref{impl-hector} provides
-a sketch of this extension. At the time of this writing, we have not
+and thus don't require reverse indices. How such extensions work is
+covered in \autoref{impl-hector}. For this specific one we only
+provide a sketch here, as at the time of this writing, we have not
 implemented it in 3DF.
+
+We observe that for unary relations, the count, propose, and validate
+steps of the worst-case optimal dataflow join can be serviced by a
+single index maintaining the entity ids in the relation in sorted
+order. Count, propose, and validate then all correspond to lookups in
+that index. The implementation is otherwise analogous to that for
+attributes, as described in \autoref{impl-hector}.
 
 \end{document}

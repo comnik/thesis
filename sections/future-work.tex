@@ -3,7 +3,7 @@
 \begin{document}
 
 A field as vast as query optimization and the novel computational
-model that Differential Dataflow presents make it impossible to cover
+model offered by Differential Dataflow makes it impossible to cover
 all relevant aspects and questions to a satisfactory degree. In this
 chapter we will touch upon insights and questions for future research
 that were obtained over the course of this work, without necessarily
@@ -61,13 +61,14 @@ skews any longer.
 \subsection{Datalog Evaluation Strategies}
 
 At its heart (and mostly thanks to Differential's incremental
-computation model), 3DF uses a semi-naive, bottom-up evaluation
-strategy. Over the past decades, many more sophisticated Datalog
-evaluation strategies have been developed (e.g. \cite{tekle2011more}).
+computation model), 3DF achieves competitive performance using only a
+semi-naive, bottom-up evaluation strategy. Over the past decades, many
+more sophisticated Datalog evaluation strategies have been developed
+(e.g. \cite{tekle2011more}).
 
-Many of these strategies hinge on finding clause orders, or
-introducing additional clauses, s.t. the resulting sequence of clauses
-is semantically equivalent to the input clauses, but materialize fewer
+Many of these strategies hinge on finding clause orders or introducing
+additional clauses, s.t. the resulting sequence of clauses is
+semantically equivalent to the input clauses, but materialize fewer
 results.
 
 More work is needed to understand how strategies such as the magic-set
@@ -138,7 +139,7 @@ express more interesting aggregations is a topic of ongoing research
 (\cite{abo2016faq}) and will be of great interest to us in the future.
 
 On the input side however, users will expect set semantics, because
-that matches the mental modelling of a domain as individual
+that matches the mental model of a domain as individual
 facts. Transacting a triple such as \texttt{[x :knows y]} twice is
 usually expected to simply assert that fact \emph{no matter what was
   true before}, rather than to indicate an increased weight of that

@@ -231,15 +231,15 @@ analogous to avoid two-way joins on disjoint relations. While this can
 be limiting in edge cases, it simplifies the implementation and helps
 avoid pathological orderings in practice. Given the following clauses:
 
-\begin{lstlisting}[language=datalog, style=colorlog]
+\begin{verbatim}
 [?a :knows ?b]
 [?b :knows ?c]
 [?c :knows ?d]
 [?a :knows ?d]
-\end{lstlisting}
+\end{verbatim}
 
 \texttt{[?a ?b ?c ?d ?e]} would be a suitable order, whereas
-\texttt{[?a ?c ?b ?d]} would'nt, because none of the bindings can
+\texttt{[?a ?c ?b ?d]} wouldn't, because none of the bindings can
 extend the prefix \texttt{[?a]} to \texttt{?c}.
 
 However starting with the prefix \texttt{[?a ?b]}, it would be equally

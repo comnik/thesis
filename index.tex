@@ -171,12 +171,13 @@ system that satisfies these properties.
   Worst-case optimal dataflow join algorithms are compatible with
   delta queries and enable robust, predictable performance
   irrespective of clause order. The performance of the resulting
-  operators can be competitive with traditional join-at-a-time
-  approaches for best- and average-case queries, and offers asymptotic
-  improvements for a class of relevant queries. Crucially, these
-  properties are preserved on long-running dataflows, even as the
-  underlying data distributions change, without the need for
-  synchronized re-optimization.
+  operator preserves near real-time performance characteristics, is
+  competitive with traditional join-at-a-time approaches on best- and
+  average-case queries, and offers asymptotic improvements for a class
+  of relevant, cyclic queries. Crucially, these properties are
+  preserved on long-running dataflows, even as the underlying data
+  distributions change, without the need for synchronized
+  re-optimization.
 
 \item
   Extensions beyond purely conjunctive queries can be implemented
@@ -184,7 +185,7 @@ system that satisfies these properties.
   implementations of binary predicates, stratified negation, and
   constant bindings. Combined with Differential's support for
   fixed-point iteration, these cover the needs of many
-  functional-relational query languages. Similarly, we gave an
+  functional-relational query languages. Similarly, we outlined an
   extension to unary relations, that allows remediating categorical
   data as a common source of skew.
 
@@ -204,7 +205,9 @@ We identified areas for future work, in particular on automated
 policies and hybrid planners, that are required to tie these
 primitives into fully-formed systems. Nevertheless we believe that our
 findings and their implementation within 3DF provide strong
-foundations on which such systems can build.
+foundations on which a new class of systems, combining the analytical
+power of databases with the performance characteristics of stream
+processors, can build.
 
 \newpage
 
